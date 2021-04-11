@@ -1,236 +1,40 @@
-<p align="center"><a href="https://vuejs.org" target="_blank"><img width="100"src="https://vuejs.org/images/logo.png"></a></p>
+# 目录结构（src）
+- platforms：提供给不同平台的 vue 版本入口；
+  - 不带 template 编译器（不支持 template 属性，只支持 render ）的 vue 版本入口：platforms\web\runtime\index.js；
+  - 带 template 编译器的 vue 版本入口：platforms\web\entry-runtime-with-compiler.js
+  - patch 函数入口：platforms\web\runtime\patch.js
+  - 编译相关入口：platforms\web\compiler\index.js
+- core：vue 核心代码；
+  - vue 核心入口：core\index.js；
+  - vue 全局 api 入口：core\global-api\index.js；
+  - vue 实例 api 入口：core\instance\index.js；
+  - Observer 相关 api 入口：core\observer\index.js；
+  - Watcher 相关 api 入口：core\observer\watcher.js；
+  - Dep 相关 api 入口：core\observer\dep.js；
+  - 组件渲染相关 api 入口：core\instance\lifecycle.js；
+  - patch 函数相关 api 入口：core\vdom\patch.js；
+- compiler：编译相关代码；
+  - 编译模板、render 等：compiler\index.js；
+- shared：公用的配置、工具类等；
 
-<p align="center">
-  <a href="https://circleci.com/gh/vuejs/vue/tree/dev"><img src="https://img.shields.io/circleci/project/vuejs/vue/dev.svg" alt="Build Status"></a>
-  <a href="https://codecov.io/github/vuejs/vue?branch=dev"><img src="https://img.shields.io/codecov/c/github/vuejs/vue/dev.svg" alt="Coverage Status"></a>
-  <a href="https://www.npmjs.com/package/vue"><img src="https://img.shields.io/npm/dm/vue.svg" alt="Downloads"></a>
-  <a href="https://www.npmjs.com/package/vue"><img src="https://img.shields.io/npm/v/vue.svg" alt="Version"></a>
-  <a href="https://www.npmjs.com/package/vue"><img src="https://img.shields.io/npm/l/vue.svg" alt="License"></a>
-  <a href="https://chat.vuejs.org/"><img src="https://img.shields.io/badge/chat-on%20discord-7289da.svg" alt="Chat">
-  <br>
-  <a href="https://saucelabs.com/u/vuejs"><img src="https://saucelabs.com/browser-matrix/vuejs.svg" alt="Sauce Test Status"></a>
-</p>
+# new Vue 做了什么
+- 在文件：src\core\instance\index.js 中，会调用 Vue 方法初始化 vue
+- 内部调用 this._init(options) 方法初始化属性
+- 在 _init 中调用一系列方法：initLifecycle、initEvents、initRender、initInjections、initState、initProvide 初始化属性，最后调用 vm.$mount(vm.$options.el) 渲染元素
 
-<h2 align="center">Supporting Vue.js</h2>
+# 响应式原理
+- 在初始化 Vue 属性时，initState 方法中开始定义响应式，initState 在文件：src\core\instance\state.js 中
+- 在 Observer 中对数据进行监听，利用 dep 与 watcher 建立联系，数据更新后通知 watcher 更新 watcher 对应的组件和视图
+- Watcher 在 mount 时被创建，主要用于和组件 vnode 建立联系，用于被 dep 通知更新时，能更新指定 vnode 对应的组件视图
 
-Vue.js is an MIT-licensed open source project. It's an independent project with its ongoing development made possible entirely thanks to the support by these awesome [backers](https://github.com/vuejs/vue/blob/dev/BACKERS.md). If you'd like to join them, please consider:
+# nextTick 的实现逻辑
+- 源码位置：src/core/instance/render.js
+- 按兼容性确定使用什么方法调用下一个回调函数 setImmediate --> MessageChannel --> Promise --> setTimeout
 
-- [Become a backer or sponsor on Patreon](https://www.patreon.com/evanyou).
-- [Become a backer or sponsor on OpenCollective](https://opencollective.com/vuejs).
+# 编译
+- parse：生成 ast 树（解析模版中的标签、属性、表达式、静态文本等等生成 ast 元素的数据）
+- optimize：优化 ast 树（标记静态节点树）
+- codegen：生成 render 代码
 
-#### What's the difference between Patreon and OpenCollective?
-
-Funds donated via Patreon goes directly to support Evan You's full-time work on Vue.js. Funds donated via OpenCollective are managed with transparent expenses and will be used for compensating work and expenses by core team members or sponsoring community events. Your name/logo will receive proper recognition and exposure by donating on either platform.
-
-<h3 align="center">Sponsors via Patreon</h3>
-
-<h4 align="center">Platinum</h4>
-
-<p align="center">
-  <a href="https://stdlib.com">
-    <img width="240px" src="https://raw.githubusercontent.com/vuejs/vuejs.org/master/themes/vue/source/images/stdlib.png">
-  </a>
-  <br><br>
-  <a href="https://xiaozhuanlan.com">
-    <img width="160px" src="https://raw.githubusercontent.com/vuejs/cn.vuejs.org/master/themes/vue/source/images/xiaozhuanlan.png">
-  </a>
-</p>
-
-<h4 align="center">Gold</h4>
-
-<table>
-  <tbody>
-    <tr>
-      <td align="center" valign="middle">
-        <a href="https://deepstreamhub.com" target="_blank">
-          <img width="140px" src="https://raw.githubusercontent.com/vuejs/vuejs.org/master/themes/vue/source/images/deepstream.png">
-        </a>
-      </td>
-      <td align="center" valign="middle">
-        <a href="https://jsfiddle.net/">
-          <img width="120px" src="https://raw.githubusercontent.com/vuejs/vuejs.org/master/themes/vue/source/images/jsfiddle.png">
-        </a>
-      </td>
-      <td align="center" valign="middle">
-        <a href="https://laravel.com/">
-          <img width="120px" src="https://raw.githubusercontent.com/vuejs/vuejs.org/master/themes/vue/source/images/laravel.png">
-        </a>
-      </td>
-      <td align="center" valign="middle">
-        <a href="https://chaitin.cn/">
-          <img width="120px" src="https://raw.githubusercontent.com/vuejs/vuejs.org/master/themes/vue/source/images/chaitin.png">
-        </a>
-      </td>
-      <td align="center" valign="middle">
-        <a href="https://htmlburger.com/">
-          <img width="120px" src="https://raw.githubusercontent.com/vuejs/vuejs.org/master/themes/vue/source/images/htmlburger.png">
-        </a>
-      </td>
-      <td align="center" valign="middle">
-        <a href="https://starter.someline.com/">
-          <img width="120px" src="https://raw.githubusercontent.com/vuejs/vuejs.org/master/themes/vue/source/images/someline.png">
-        </a>
-      </td>
-    </tr>
-    <tr></tr>
-    <tr>
-      <td align="center" valign="middle">
-        <a href="http://monterail.com/" target="_blank">
-          <img width="120px" src="https://raw.githubusercontent.com/vuejs/vuejs.org/master/themes/vue/source/images/monterail.png">
-        </a>
-      </td>
-      <td align="center" valign="middle">
-        <a href="https://www.2mhost.com/" target="_blank">
-          <img width="120px" src="https://raw.githubusercontent.com/vuejs/vuejs.org/master/themes/vue/source/images/2mhost.png">
-        </a>
-      </td>
-      <td align="center" valign="middle">
-        <a href="https://vuejsjob.com/?ref=vuejs" target="_blank">
-          <img width="120px" src="https://raw.githubusercontent.com/vuejs/vuejs.org/master/themes/vue/source/images/vuejobs.png">
-        </a>
-      </td>
-      <td align="center" valign="middle">
-        <a href="https://leanpub.com/vuejs2" target="_blank">
-          <img width="120px" src="https://raw.githubusercontent.com/vuejs/vuejs.org/master/themes/vue/source/images/tmvuejs2.png">
-        </a>
-      </td>
-      <td align="center" valign="middle">
-        <a href="https://component.io/" target="_blank">
-          <img width="130px" src="https://raw.githubusercontent.com/vuejs/vuejs.org/master/themes/vue/source/images/component_io.png">
-        </a>
-      </td>
-      <td align="center" valign="middle">
-        <a href="https://www.v2ex.com/t/379389" target="_blank">
-          <img width="130px" src="https://raw.githubusercontent.com/vuejs/vuejs.org/master/themes/vue/source/images/v2exer.png">
-        </a>
-      </td>
-    </tr>
-    <tr></tr>
-    <tr>
-      <td align="center" valign="middle">
-        <a href="https://www.xfive.co/" target="_blank">
-          <img width="80px" src="https://raw.githubusercontent.com/vuejs/vuejs.org/master/themes/vue/source/images/xfive.png">
-        </a>
-      </td>
-      <td align="center" valign="middle">
-        <a href="http://www.frontenddevelopermeetups.com/" target="_blank">
-          <img width="160px" src="https://raw.githubusercontent.com/vuejs/vuejs.org/master/themes/vue/source/images/frontend-meetups.png">
-        </a>
-      </td>
-      <td align="center" valign="middle">
-        <a href="https://onsen.io/vue/" target="_blank">
-          <img width="130px" src="https://raw.githubusercontent.com/vuejs/vuejs.org/master/themes/vue/source/images/onsen-ui.png">
-        </a>
-      </td>
-      <td align="center" valign="middle">
-        <a href="http://tooltwist.com" target="_blank">
-          <img width="140px" src="https://raw.githubusercontent.com/vuejs/vuejs.org/master/themes/vue/source/images/tooltwist.png">
-        </a>
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 align="center">Sponsors via OpenCollective</h3>
-
-<h4 align="center">Platinum</h4>
-
-<a href="https://opencollective.com/vuejs/platinumsponsor/0/website" target="_blank"><img src="https://opencollective.com/vuejs/platinumsponsor/0/avatar.svg"></a>
-<a href="https://opencollective.com/vuejs/platinumsponsor/1/website" target="_blank"><img src="https://opencollective.com/vuejs/platinumsponsor/1/avatar.svg"></a>
-
-<h4 align="center">Gold</h4>
-
-<a href="https://opencollective.com/vuejs/goldsponsor/0/website" target="_blank"><img src="https://opencollective.com/vuejs/goldsponsor/0/avatar.svg"></a>
-<a href="https://opencollective.com/vuejs/bronzesponsor/1/website" target="_blank"><img src="https://opencollective.com/vuejs/bronzesponsor/1/avatar.svg"></a>
-<a href="https://opencollective.com/vuejs/goldsponsor/1/website" target="_blank"><img src="https://opencollective.com/vuejs/goldsponsor/1/avatar.svg"></a>
-<a href="https://opencollective.com/vuejs/goldsponsor/2/website" target="_blank"><img src="https://opencollective.com/vuejs/goldsponsor/2/avatar.svg"></a>
-<a href="https://opencollective.com/vuejs/goldsponsor/3/website" target="_blank"><img src="https://opencollective.com/vuejs/goldsponsor/3/avatar.svg"></a>
-<a href="https://opencollective.com/vuejs/goldsponsor/4/website" target="_blank"><img src="https://opencollective.com/vuejs/goldsponsor/4
-  /avatar.svg"></a>
-
----
-
-## Introduction
-
-Vue (pronounced `/vjuː/`, like view) is a **progressive framework** for building user interfaces. It is designed from the ground up to be incrementally adoptable, and can easily scale between a library and a framework depending on different use cases. It consists of an approachable core library that focuses on the view layer only, and an ecosystem of supporting libraries that helps you tackle complexity in large Single-Page Applications.
-
-#### Browser Compatibility
-
-Vue.js supports all browsers that are [ES5-compliant](http://kangax.github.io/compat-table/es5/) (IE8 and below are not supported).
-
-## Ecosystem
-
-| Project | Status | Description |
-|---------|--------|-------------|
-| [vue-router]          | [![vue-router-status]][vue-router-package] | Single-page application routing |
-| [vuex]                | [![vuex-status]][vuex-package] | Large-scale state management |
-| [vue-cli]             | [![vue-cli-status]][vue-cli-package] | Project scaffolding |
-| [vue-loader]          | [![vue-loader-status]][vue-loader-package] | Single File Component (`*.vue` file) loader for webpack |
-| [vue-server-renderer] | [![vue-server-renderer-status]][vue-server-renderer-package] | Server-side rendering support |
-| [vue-class-component] | [![vue-class-component-status]][vue-class-component-package] | TypeScript decorator for a class-based API |
-| [vue-rx]              | [![vue-rx-status]][vue-rx-package] | RxJS integration |
-| [vue-devtools]        | [![vue-devtools-status]][vue-devtools-package] | Browser DevTools extension |
-
-[vue-router]: https://github.com/vuejs/vue-router
-[vuex]: https://github.com/vuejs/vuex
-[vue-cli]: https://github.com/vuejs/vue-cli
-[vue-loader]: https://github.com/vuejs/vue-loader
-[vue-server-renderer]: https://github.com/vuejs/vue/tree/dev/packages/vue-server-renderer
-[vue-class-component]: https://github.com/vuejs/vue-class-component
-[vue-rx]: https://github.com/vuejs/vue-rx
-[vue-devtools]:  https://github.com/vuejs/vue-devtools
-
-[vue-router-status]: https://img.shields.io/npm/v/vue-router.svg
-[vuex-status]: https://img.shields.io/npm/v/vuex.svg
-[vue-cli-status]: https://img.shields.io/npm/v/vue-cli.svg
-[vue-loader-status]: https://img.shields.io/npm/v/vue-loader.svg
-[vue-server-renderer-status]: https://img.shields.io/npm/v/vue-server-renderer.svg
-[vue-class-component-status]: https://img.shields.io/npm/v/vue-class-component.svg
-[vue-rx-status]: https://img.shields.io/npm/v/vue-rx.svg
-[vue-devtools-status]: https://img.shields.io/chrome-web-store/v/nhdogjmejiglipccpnnnanhbledajbpd.svg
-
-[vue-router-package]: https://npmjs.com/package/vue-router
-[vuex-package]: https://npmjs.com/package/vuex
-[vue-cli-package]: https://npmjs.com/package/vue-cli
-[vue-loader-package]: https://npmjs.com/package/vue-loader
-[vue-server-renderer-package]: https://npmjs.com/package/vue-server-renderer
-[vue-class-component-package]: https://npmjs.com/package/vue-class-component
-[vue-rx-package]: https://npmjs.com/package/vue-rx
-[vue-devtools-package]: https://chrome.google.com/webstore/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd
-
-## Documentation
-
-To check out live examples and docs, visit [vuejs.org](https://vuejs.org).
-
-## Questions
-
-For questions and support please use the [the official forum](http://forum.vuejs.org) or [community chat](https://chat.vuejs.org/). The issue list of this repo is **exclusively** for bug reports and feature requests.
-
-## Issues
-
-Please make sure to read the [Issue Reporting Checklist](https://github.com/vuejs/vue/blob/dev/.github/CONTRIBUTING.md#issue-reporting-guidelines) before opening an issue. Issues not conforming to the guidelines may be closed immediately.
-
-## Changelog
-
-Detailed changes for each release are documented in the [release notes](https://github.com/vuejs/vue/releases).
-
-## Stay In Touch
-
-- [Twitter](https://twitter.com/vuejs)
-- [Blog](https://medium.com/the-vue-point)
-- [Job Board](https://vuejobs.com/?ref=vuejs)
-
-## Contribution
-
-Please make sure to read the [Contributing Guide](https://github.com/vuejs/vue/blob/dev/.github/CONTRIBUTING.md) before making a pull request. If you have a Vue-related project/component/tool, add it with a pull-request to [this curated list](https://github.com/vuejs/awesome-vue)!
-
-Thank you to all the people who already contributed to Vue!
-
-<a href="https://github.com/vuejs/vue/graphs/contributors"><img src="https://opencollective.com/vuejs/contributors.svg?width=890" /></a>
-
-
-## License
-
-[MIT](http://opensource.org/licenses/MIT)
-
-Copyright (c) 2013-present, Yuxi (Evan) You
+# 中文输入过程监听事件
+- compositionstart、compositionend
