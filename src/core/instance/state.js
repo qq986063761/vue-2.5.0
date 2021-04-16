@@ -53,6 +53,7 @@ export function initState (vm: Component) {
   if (opts.data) {
     initData(vm)
   } else {
+    // 如果没有 data 属性，就设置空对象
     observe(vm._data = {}, true /* asRootData */)
   }
   if (opts.computed) initComputed(vm, opts.computed)
@@ -111,6 +112,7 @@ function initProps (vm: Component, propsOptions: Object) {
 
 function initData (vm: Component) {
   let data = vm.$options.data
+  // 获取 data 数据，有可能是函数是为了保持返回对象的独立性
   data = vm._data = typeof data === 'function'
     ? getData(data, vm)
     : data || {}

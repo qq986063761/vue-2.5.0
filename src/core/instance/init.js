@@ -19,14 +19,14 @@ export function initMixin (Vue: Class<Component>) {
     vm._uid = uid++
 
     let startTag, endTag
-    /* istanbul ignore if */
+    // Vue.config.performance 是 true 时，会调用浏览器性能相关方法进行标记，用于 Vue devtool 做性能记录
     if (process.env.NODE_ENV !== 'production' && config.performance && mark) {
       startTag = `vue-perf-start:${vm._uid}`
       endTag = `vue-perf-end:${vm._uid}`
       mark(startTag)
     }
 
-    // a flag to avoid this being observed
+    // 避免重复被监听的标记
     vm._isVue = true
     // merge options
     if (options && options._isComponent) {
@@ -54,7 +54,7 @@ export function initMixin (Vue: Class<Component>) {
     initRender(vm)
     callHook(vm, 'beforeCreate')
     initInjections(vm) // resolve injections before data/props
-    initState(vm)
+    initState(vm) // 初始化 props、data、computed 等配置属性
     initProvide(vm) // resolve provide after data/props
     callHook(vm, 'created')
 

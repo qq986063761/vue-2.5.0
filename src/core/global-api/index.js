@@ -46,12 +46,14 @@ export function initGlobalAPI (Vue: GlobalAPI) {
   Vue.nextTick = nextTick
 
   // 2.6 explicit observable API
-  Vue.observable = <T>(obj: T): T => {
+  // <T>(obj: T): T => {
+  Vue.observable = obj => {
     observe(obj)
     return obj
   }
 
   Vue.options = Object.create(null)
+  // 在 Vue.options 下创建 components、directives、filters 对象，存全局组件、指令、筛选器
   ASSET_TYPES.forEach(type => {
     Vue.options[type + 's'] = Object.create(null)
   })
@@ -60,10 +62,11 @@ export function initGlobalAPI (Vue: GlobalAPI) {
   // components with in Weex's multi-instance scenarios.
   Vue.options._base = Vue
 
+  // 继承内置组件，keep-alive
   extend(Vue.options.components, builtInComponents)
 
-  initUse(Vue)
-  initMixin(Vue)
-  initExtend(Vue)
-  initAssetRegisters(Vue)
+  initUse(Vue) // 创建 Vue.use 方法
+  initMixin(Vue) // 创建 Vue.mixin 方法
+  initExtend(Vue) // 创建 Vue.extend 方法
+  initAssetRegisters(Vue) // 创建 Vue.component、Vue.directive、Vue.filter 方法
 }
