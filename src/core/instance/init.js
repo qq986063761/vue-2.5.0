@@ -16,7 +16,7 @@ export function initMixin (Vue: Class<Component>) {
   // 初始化 vue options
   Vue.prototype._init = function (options?: Object) {
     const vm: Component = this
-    // 定义每个 vue 实例的唯一 id
+    // 每个 vue 实例的唯一 id
     vm._uid = uid++
     
     let startTag, endTag

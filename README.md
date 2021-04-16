@@ -1,23 +1,23 @@
-# 目录结构（src）
-- platforms：提供给不同平台的 vue 版本入口；
-  - 不带 template 编译器（不支持 template 属性，只支持 render ）的 vue 版本入口：platforms\web\runtime\index.js；
-  - 带 template 编译器的 vue 版本入口：platforms\web\entry-runtime-with-compiler.js
-  - patch 函数入口：platforms\web\runtime\patch.js
-  - 编译相关入口：platforms\web\compiler\index.js
-- core：vue 核心代码；
-  - vue 核心入口：core\index.js；
-  - vue 全局 api 入口：core\global-api\index.js；
-  - vue 实例 api 入口：core\instance\index.js；
-  - Observer 相关 api 入口：core\observer\index.js；
-  - Watcher 相关 api 入口：core\observer\watcher.js；
-  - Dep 相关 api 入口：core\observer\dep.js；
-  - 组件渲染相关 api 入口：core\instance\lifecycle.js；
-  - patch 函数相关 api 入口：core\vdom\patch.js；
-- compiler：编译相关代码；
-  - 编译模板、render 等：compiler\index.js；
-- shared：公用的配置、工具类等；
+# src 下的目录
+- platforms：提供给不同平台的 vue 版本入口
+  - 不带 template 编译器（不支持 template 属性，只支持 render）的 vue 版本入口文件：platforms\web\runtime\index.js
+  - 带 template 编译器的 vue 版本入口文件：platforms\web\entry-runtime-with-compiler.js
+  - patch 函数入口文件：platforms\web\runtime\patch.js
+  - 编译相关入口文件：platforms\web\compiler\index.js
+- core：vue 主要流程代码
+  - vue 导出主要出口文件：core\index.js
+  - vue 全局 api 入口文件：core\global-api\index.js
+  - vue 实例 api 入口文件：core\instance\index.js
+  - Observer 入口文件：core\observer\index.js
+  - Watcher 入口文件：core\observer\watcher.js
+  - Dep 入口文件：core\observer\dep.js
+  - 组件渲染相关 api 入口文件：core\instance\lifecycle.js
+  - patch 函数相关 api 入口文件：core\vdom\patch.js
+- compiler：编译相关代码
+  - 编译模板、render 等：compiler\index.js
+- shared：公用的配置、工具类等
 
-# new Vue 做了什么
+# new Vue
 - 在文件：src\core\instance\index.js 中，会调用 Vue 方法初始化 vue
 - 内部调用 this._init(options) 方法初始化属性
 - 在 _init 中调用一系列方法：initLifecycle、initEvents、initRender、initInjections、initState、initProvide 初始化属性，最后调用 vm.$mount(vm.$options.el) 渲染元素

@@ -21,6 +21,7 @@ export function initGlobalAPI (Vue: GlobalAPI) {
   // config
   const configDef = {}
   configDef.get = () => config
+  // 提醒用户不能改 Vue.config，只能加私有属性
   if (process.env.NODE_ENV !== 'production') {
     configDef.set = () => {
       warn(
@@ -46,7 +47,7 @@ export function initGlobalAPI (Vue: GlobalAPI) {
 
   Vue.options = Object.create(null)
 
-  // 初始化全局资源（components、directives、filters）空对象
+  // 全局方法配置，像 components、directives、filters
   ASSET_TYPES.forEach(type => {
     Vue.options[type + 's'] = Object.create(null)
   })
