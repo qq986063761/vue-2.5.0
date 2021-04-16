@@ -1,7 +1,7 @@
 /* @flow */
 
 import { warn } from './debug'
-import { observe, observerState } from '../observer/index'
+import { observe, toggleObserving, shouldObserve } from '../observer/index'
 import {
   hasOwn,
   isObject,
@@ -18,60 +18,59 @@ type PropOptions = {
   validator: ?Function
 };
 
-// 检查 props 的合法性
 export function validateProp (
   key: string,
   propOptions: Object,
   propsData: Object,
   vm?: Component
 ): any {
-  // 获取属性配置
   const prop = propOptions[key]
-  // 判断父组件是否传入了 props 对应属性值
-  // propsData 中没有对应配置的 key 值说明不存在
   const absent = !hasOwn(propsData, key)
-  // 获取父组件传入的 props 值
   let value = propsData[key]
-  // 针对 boolean 类型的 props 值做处理
-  if (isType(Boolean, prop.type)) {
-    // 如果父组件没有传递对应 props key 的值，且自己没有定义 default props，则默认 false
+  // boolean casting
+  const booleanIndex = getTypeIndex(Boolean, prop.type)
+  if (booleanIndex > -1) {
     if (absent && !hasOwn(prop, 'default')) {
       value = false
-    } else if (!isType(String, prop.type) && (value === '' || value === hyphenate(key))) {
-      // 如果不是 string 类型，且父组件传递了 '' 或者是值和key的连字符形式相等，则默认给 true
-      value = true
+    } else if (value === '' || value === hyphenate(key)) {
+      // only cast empty string / same name to boolean if
+      // boolean has higher priority
+      const stringIndex = getTypeIndex(String, prop.type)
+      if (stringIndex < 0 || booleanIndex < stringIndex) {
+        value = true
+      }
     }
   }
-  // 如果父组件没有传递 props 值
+  // check default value
   if (value === undefined) {
-    // 获取子组件内 props 配置的默认值
     value = getPropDefaultValue(vm, prop, key)
-    // 这里获取的默认值是一个新值，应该要定义响应式
-    // 所以这里获取之前的 observerState.shouldConvert 值，然后设置为 true 后
-    // 调用 observe(value) 让内部可以定义数据的响应式
-    const prevShouldConvert = observerState.shouldConvert
-    observerState.shouldConvert = true
+    // since the default value is a fresh copy,
+    // make sure to observe it.
+    const prevShouldObserve = shouldObserve
+    toggleObserving(true)
     observe(value)
-    // 恢复之前的 observerState.shouldConvert 状态
-    observerState.shouldConvert = prevShouldConvert
+    toggleObserving(prevShouldObserve)
   }
-  // 如果是开发模式，则调用 assertProp 判断 props 的合法性
-  if (process.env.NODE_ENV !== 'production') {
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    // skip validation for weex recycle-list child component props
+    !(__WEEX__ && isObject(value) && ('@binding' in value))
+  ) {
     assertProp(prop, key, value, vm, absent)
   }
   return value
 }
 
 /**
- * 获取 props 的 default 默认配置值
+ * Get the default value of a prop.
  */
 function getPropDefaultValue (vm: ?Component, prop: PropOptions, key: string): any {
-  // 如果没有配置默认值，则返回 undefined
+  // no default, return undefined
   if (!hasOwn(prop, 'default')) {
     return undefined
   }
   const def = prop.default
-  // 如果默认值是对象或者数组，则警告需要通过函数返回值，这里应该是为了避免数据污染，保证数据的独立性
+  // warn against non-factory defaults for Object & Array
   if (process.env.NODE_ENV !== 'production' && isObject(def)) {
     warn(
       'Invalid default value for prop "' + key + '": ' +
@@ -80,22 +79,23 @@ function getPropDefaultValue (vm: ?Component, prop: PropOptions, key: string): a
       vm
     )
   }
-  // 如果父组件没有传递 props 值，且之前有缓存的 vm._props[key] 值，则直接返回旧值，避免触发更新
+  // the raw prop value was also undefined from previous render,
+  // return previous default value to avoid unnecessary watcher trigger
   if (vm && vm.$options.propsData &&
     vm.$options.propsData[key] === undefined &&
     vm._props[key] !== undefined
   ) {
     return vm._props[key]
   }
-
-  // 如果默认值定义的值是函数，但是 props 配置类型不是函数，则调用默认值对应函数获取结果，否则直接返回默认值
+  // call factory function for non-Function types
+  // a value is Function if its prototype is function even across different execution context
   return typeof def === 'function' && getType(prop.type) !== 'Function'
     ? def.call(vm)
     : def
 }
 
 /**
- * 断言 props 传值的合法性
+ * Assert whether a prop is valid.
  */
 function assertProp (
   prop: PropOptions,
@@ -104,7 +104,6 @@ function assertProp (
   vm: ?Component,
   absent: boolean
 ) {
-  // 如果是必填，但是父组件没有传递 props key，则警告
   if (prop.required && absent) {
     warn(
       'Missing required prop: "' + name + '"',
@@ -119,31 +118,24 @@ function assertProp (
   let valid = !type || type === true
   const expectedTypes = []
   if (type) {
-    // 如果 prop.type 不是数组，比如 type: Boolean 这种单类型配置，则转化为数组
     if (!Array.isArray(type)) {
       type = [type]
     }
-    // 根据配置的类型，和传递的 value 获取期望类型是否满足的结果对象
-    //  && !valid 的判断表示只要其中存在满足条件的类型则跳出 for 循环
     for (let i = 0; i < type.length && !valid; i++) {
-      const assertedType = assertType(value, type[i])
+      const assertedType = assertType(value, type[i], vm)
       expectedTypes.push(assertedType.expectedType || '')
       valid = assertedType.valid
     }
   }
 
-  // 如果一个都不满足，则警告不满足类型
-  if (!valid) {
+  const haveExpectedTypes = expectedTypes.some(t => t)
+  if (!valid && haveExpectedTypes) {
     warn(
-      `Invalid prop: type check failed for prop "${name}".` +
-      ` Expected ${expectedTypes.map(capitalize).join(', ')}` +
-      `, got ${toRawType(value)}.`,
+      getInvalidTypeMessage(name, value, expectedTypes),
       vm
     )
     return
   }
-
-  // 如果配置了 props 的 validator 属性，则判断不满足 validator 内逻辑的情况就警告
   const validator = prop.validator
   if (validator) {
     if (!validator(value)) {
@@ -155,10 +147,9 @@ function assertProp (
   }
 }
 
-const simpleCheckRE = /^(String|Number|Boolean|Function|Symbol)$/
+const simpleCheckRE = /^(String|Number|Boolean|Function|Symbol|BigInt)$/
 
-// 判断值是否符合期望的类型预期
-function assertType (value: any, type: Function): {
+function assertType (value: any, type: Function, vm: ?Component): {
   valid: boolean;
   expectedType: string;
 } {
@@ -176,7 +167,12 @@ function assertType (value: any, type: Function): {
   } else if (expectedType === 'Array') {
     valid = Array.isArray(value)
   } else {
-    valid = value instanceof type
+    try {
+      valid = value instanceof type
+    } catch (e) {
+      warn('Invalid prop type: "' + String(type) + '" is not a constructor', vm);
+      valid = false;
+    }
   }
   return {
     valid,
@@ -184,25 +180,71 @@ function assertType (value: any, type: Function): {
   }
 }
 
+const functionTypeCheckRE = /^\s*function (\w+)/
+
 /**
  * Use function string name to check built-in types,
  * because a simple equality check will fail when running
  * across different vms / iframes.
  */
 function getType (fn) {
-  const match = fn && fn.toString().match(/^\s*function (\w+)/)
+  const match = fn && fn.toString().match(functionTypeCheckRE)
   return match ? match[1] : ''
 }
 
-function isType (type, fn) {
-  if (!Array.isArray(fn)) {
-    return getType(fn) === getType(type)
+function isSameType (a, b) {
+  return getType(a) === getType(b)
+}
+
+function getTypeIndex (type, expectedTypes): number {
+  if (!Array.isArray(expectedTypes)) {
+    return isSameType(expectedTypes, type) ? 0 : -1
   }
-  for (let i = 0, len = fn.length; i < len; i++) {
-    if (getType(fn[i]) === getType(type)) {
-      return true
+  for (let i = 0, len = expectedTypes.length; i < len; i++) {
+    if (isSameType(expectedTypes[i], type)) {
+      return i
     }
   }
-  /* istanbul ignore next */
-  return false
+  return -1
+}
+
+function getInvalidTypeMessage (name, value, expectedTypes) {
+  let message = `Invalid prop: type check failed for prop "${name}".` +
+    ` Expected ${expectedTypes.map(capitalize).join(', ')}`
+  const expectedType = expectedTypes[0]
+  const receivedType = toRawType(value)
+  // check if we need to specify expected value
+  if (
+    expectedTypes.length === 1 &&
+    isExplicable(expectedType) &&
+    isExplicable(typeof value) &&
+    !isBoolean(expectedType, receivedType)
+  ) {
+    message += ` with value ${styleValue(value, expectedType)}`
+  }
+  message += `, got ${receivedType} `
+  // check if we need to specify received value
+  if (isExplicable(receivedType)) {
+    message += `with value ${styleValue(value, receivedType)}.`
+  }
+  return message
+}
+
+function styleValue (value, type) {
+  if (type === 'String') {
+    return `"${value}"`
+  } else if (type === 'Number') {
+    return `${Number(value)}`
+  } else {
+    return `${value}`
+  }
+}
+
+const EXPLICABLE_TYPES = ['string', 'number', 'boolean']
+function isExplicable (value) {
+  return EXPLICABLE_TYPES.some(elem => value.toLowerCase() === elem)
+}
+
+function isBoolean (...args) {
+  return args.some(elem => elem.toLowerCase() === 'boolean')
 }

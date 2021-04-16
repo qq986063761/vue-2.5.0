@@ -8,6 +8,7 @@ import { initAssetRegisters } from './assets'
 import { set, del } from '../observer/index'
 import { ASSET_TYPES } from 'shared/constants'
 import builtInComponents from '../components/index'
+import { observe } from 'core/observer/index'
 
 import {
   warn,
@@ -21,7 +22,6 @@ export function initGlobalAPI (Vue: GlobalAPI) {
   // config
   const configDef = {}
   configDef.get = () => config
-  // 提醒用户不能改 Vue.config，只能加私有属性
   if (process.env.NODE_ENV !== 'production') {
     configDef.set = () => {
       warn(
@@ -45,9 +45,13 @@ export function initGlobalAPI (Vue: GlobalAPI) {
   Vue.delete = del
   Vue.nextTick = nextTick
 
-  Vue.options = Object.create(null)
+  // 2.6 explicit observable API
+  Vue.observable = <T>(obj: T): T => {
+    observe(obj)
+    return obj
+  }
 
-  // 全局方法配置，像 components、directives、filters
+  Vue.options = Object.create(null)
   ASSET_TYPES.forEach(type => {
     Vue.options[type + 's'] = Object.create(null)
   })
@@ -56,12 +60,10 @@ export function initGlobalAPI (Vue: GlobalAPI) {
   // components with in Weex's multi-instance scenarios.
   Vue.options._base = Vue
 
-  // 初始化内置组件
   extend(Vue.options.components, builtInComponents)
 
   initUse(Vue)
   initMixin(Vue)
   initExtend(Vue)
-  // 初始化全局资源定义的方法
   initAssetRegisters(Vue)
 }

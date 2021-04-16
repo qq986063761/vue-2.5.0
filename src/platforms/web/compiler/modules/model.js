@@ -1,7 +1,7 @@
 /* @flow */
 
 /**
- * Expand input[v-model] with dyanmic type bindings into v-if-else chains
+ * Expand input[v-model] with dynamic type bindings into v-if-else chains
  * Turn this:
  *   <input v-model="data[type]" :type="type">
  * into this:
@@ -11,6 +11,7 @@
  */
 
 import {
+  addRawAttr,
   getBindingAttr,
   getAndRemoveAttr
 } from 'compiler/helpers'
@@ -22,15 +23,26 @@ import {
   createASTElement
 } from 'compiler/parser/index'
 
-// 预处理 ast 元素数据
 function preTransformNode (el: ASTElement, options: CompilerOptions) {
-  // 针对 input 元素数据做一些处理
   if (el.tag === 'input') {
     const map = el.attrsMap
-    if (map['v-model'] && (map['v-bind:type'] || map[':type'])) {
-      const typeBinding: any = getBindingAttr(el, 'type')
+    if (!map['v-model']) {
+      return
+    }
+
+    let typeBinding
+    if (map[':type'] || map['v-bind:type']) {
+      typeBinding = getBindingAttr(el, 'type')
+    }
+    if (!map.type && !typeBinding && map['v-bind']) {
+      typeBinding = `(${map['v-bind']}).type`
+    }
+
+    if (typeBinding) {
       const ifCondition = getAndRemoveAttr(el, 'v-if', true)
       const ifConditionExtra = ifCondition ? `&&(${ifCondition})` : ``
+      const hasElse = getAndRemoveAttr(el, 'v-else', true) != null
+      const elseIfCondition = getAndRemoveAttr(el, 'v-else-if', true)
       // 1. checkbox
       const branch0 = cloneASTElement(el)
       // process for on the main node
@@ -38,7 +50,7 @@ function preTransformNode (el: ASTElement, options: CompilerOptions) {
       addRawAttr(branch0, 'type', 'checkbox')
       processElement(branch0, options)
       branch0.processed = true // prevent it from double-processed
-      branch0.if = `type==='checkbox'` + ifConditionExtra
+      branch0.if = `(${typeBinding})==='checkbox'` + ifConditionExtra
       addIfCondition(branch0, {
         exp: branch0.if,
         block: branch0
@@ -49,7 +61,7 @@ function preTransformNode (el: ASTElement, options: CompilerOptions) {
       addRawAttr(branch1, 'type', 'radio')
       processElement(branch1, options)
       addIfCondition(branch0, {
-        exp: `type==='radio'` + ifConditionExtra,
+        exp: `(${typeBinding})==='radio'` + ifConditionExtra,
         block: branch1
       })
       // 3. other
@@ -61,6 +73,13 @@ function preTransformNode (el: ASTElement, options: CompilerOptions) {
         exp: ifCondition,
         block: branch2
       })
+
+      if (hasElse) {
+        branch0.else = true
+      } else if (elseIfCondition) {
+        branch0.elseif = elseIfCondition
+      }
+
       return branch0
     }
   }
@@ -68,11 +87,6 @@ function preTransformNode (el: ASTElement, options: CompilerOptions) {
 
 function cloneASTElement (el) {
   return createASTElement(el.tag, el.attrsList.slice(), el.parent)
-}
-
-function addRawAttr (el, name, value) {
-  el.attrsMap[name] = value
-  el.attrsList.push({ name, value })
 }
 
 export default {

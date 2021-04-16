@@ -5,10 +5,8 @@ import { createPatchFunction } from 'core/vdom/patch'
 import baseModules from 'core/vdom/modules/index'
 import platformModules from 'web/runtime/modules/index'
 
-// 一些平台模块和基本模块
-// platformModules 中包含 attrs, klass, events, domProps, style, transition 相关 hook
-// baseModules 中包含 ref, directives 相关的 hook
+// the directive module should be applied last, after all
+// built-in modules have been applied.
 const modules = platformModules.concat(baseModules)
 
-// 创建最终的 patch 函数
 export const patch: Function = createPatchFunction({ nodeOps, modules })

@@ -2,13 +2,13 @@
 
 import { makeMap } from 'shared/util'
 
-// 判断是否是一元标签，可自结束不用闭合标签的元素
 export const isUnaryTag = makeMap(
   'area,base,br,col,embed,frame,hr,img,input,isindex,keygen,' +
   'link,meta,param,source,track,wbr'
 )
 
-// 可以不用闭合标签的一些标签
+// Elements that you can, intentionally, leave open
+// (and which close themselves)
 export const canBeLeftOpenTag = makeMap(
   'colgroup,dd,dt,li,options,p,td,tfoot,th,thead,tr,source'
 )

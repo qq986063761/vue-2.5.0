@@ -1,6 +1,8 @@
 /* @flow */
 
-// 生成组件的 v-model 相关代码
+/**
+ * Cross-platform code generation for component v-model
+ */
 export function genComponentModel (
   el: ASTElement,
   value: string,
@@ -13,34 +15,32 @@ export function genComponentModel (
   if (trim) {
     valueExpression =
       `(typeof ${baseValueExpression} === 'string'` +
-        `? ${baseValueExpression}.trim()` +
-        `: ${baseValueExpression})`
+      `? ${baseValueExpression}.trim()` +
+      `: ${baseValueExpression})`
   }
   if (number) {
     valueExpression = `_n(${valueExpression})`
   }
   const assignment = genAssignmentCode(value, valueExpression)
-  
-  // 返回 el.model，将组件 model 信息保存起来，用于生成代码的时候进行判断
+
   el.model = {
     value: `(${value})`,
-    expression: `"${value}"`,
+    expression: JSON.stringify(value),
     callback: `function (${baseValueExpression}) {${assignment}}`
   }
 }
 
-// 用于生成 v-model 的赋值代码的方法
+/**
+ * Cross-platform codegen helper for generating v-model value assignment code.
+ */
 export function genAssignmentCode (
   value: string,
   assignment: string
 ): string {
-  // 解析 value，生成可能的路径对象
   const res = parseModel(value)
-  // 如果解析结果中没有 key，可能 value 不是对象，则代码就类似下面的直接赋值
   if (res.key === null) {
     return `${value}=${assignment}`
   } else {
-    // 否则就返回 $set 的一段赋值代码
     return `$set(${res.exp}, ${res.key}, ${assignment})`
   }
 }
@@ -68,6 +68,9 @@ type ModelParseResult = {
 }
 
 export function parseModel (val: string): ModelParseResult {
+  // Fix https://github.com/vuejs/vue/pull/7730
+  // allow v-model="obj.val " (trailing whitespace)
+  val = val.trim()
   len = val.length
 
   if (val.indexOf('[') < 0 || val.lastIndexOf(']') < len - 1) {

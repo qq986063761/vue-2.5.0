@@ -5,16 +5,17 @@ import { optimize } from './optimizer'
 import { generate } from './codegen/index'
 import { createCompilerCreator } from './create-compiler'
 
-// 调用 createCompilerCreator 方法，获取 createCompiler 函数
+// `createCompilerCreator` allows creating compilers that use alternative
+// parser/optimizer/codegen, e.g the SSR optimizing compiler.
+// Here we just export a default compiler using the default parts.
 export const createCompiler = createCompilerCreator(function baseCompile (
   template: string,
   options: CompilerOptions
 ): CompiledResult {
-  // 生成 ast（抽象语法树，也就是一个树形 js 对象结构） 树结构
   const ast = parse(template.trim(), options)
-  // 优化 ast 树
-  optimize(ast, options)
-  // 生成最终的代码对象
+  if (options.optimize !== false) {
+    optimize(ast, options)
+  }
   const code = generate(ast, options)
   return {
     ast,

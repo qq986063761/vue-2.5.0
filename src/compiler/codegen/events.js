@@ -1,9 +1,10 @@
 /* @flow */
 
-const fnExpRE = /^\s*([\w$_]+|\([^)]*?\))\s*=>|^function\s*\(/
-const simplePathRE = /^\s*[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*|\['.*?']|\[".*?"]|\[\d+]|\[[A-Za-z_$][\w$]*])*\s*$/
+const fnExpRE = /^([\w$_]+|\([^)]*?\))\s*=>|^function(?:\s+[\w$]+)?\s*\(/
+const fnInvokeRE = /\([^)]*?\);*$/
+const simplePathRE = /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*|\['[^']*?']|\["[^"]*?"]|\[\d+]|\[[A-Za-z_$][\w$]*])*$/
 
-// keyCode aliases
+// KeyboardEvent.keyCode aliases
 const keyCodes: { [key: string]: number | Array<number> } = {
   esc: 27,
   tab: 9,
@@ -14,6 +15,23 @@ const keyCodes: { [key: string]: number | Array<number> } = {
   right: 39,
   down: 40,
   'delete': [8, 46]
+}
+
+// KeyboardEvent.key aliases
+const keyNames: { [key: string]: string | Array<string> } = {
+  // #7880: IE11 and Edge use `Esc` for Escape key name.
+  esc: ['Esc', 'Escape'],
+  tab: 'Tab',
+  enter: 'Enter',
+  // #9112: IE11 uses `Spacebar` for Space key name.
+  space: [' ', 'Spacebar'],
+  // #7806: IE11 uses key names without `Arrow` prefix for arrow keys.
+  up: ['Up', 'ArrowUp'],
+  left: ['Left', 'ArrowLeft'],
+  right: ['Right', 'ArrowRight'],
+  down: ['Down', 'ArrowDown'],
+  // #9112: IE11 uses `Del` for Delete key name.
+  'delete': ['Backspace', 'Delete', 'Del']
 }
 
 // #4868: modifiers that prevent the execution of the listener
@@ -36,62 +54,73 @@ const modifierCode: { [key: string]: string } = {
 
 export function genHandlers (
   events: ASTElementHandlers,
-  isNative: boolean,
-  warn: Function
+  isNative: boolean
 ): string {
-  // 判断是否是原生事件，拼接对应的代码
-  let res = isNative ? 'nativeOn:{' : 'on:{'
-
+  const prefix = isNative ? 'nativeOn:' : 'on:'
+  let staticHandlers = ``
+  let dynamicHandlers = ``
   for (const name in events) {
-    const handler = events[name]
-    // #5330: warn click.right, since right clicks do not actually fire click events.
-    if (process.env.NODE_ENV !== 'production' &&
-      name === 'click' &&
-      handler && handler.modifiers && handler.modifiers.right
-    ) {
-      warn(
-        `Use "contextmenu" instead of "click.right" since right clicks ` +
-        `do not actually fire "click" events.`
-      )
+    const handlerCode = genHandler(events[name])
+    if (events[name] && events[name].dynamic) {
+      dynamicHandlers += `${name},${handlerCode},`
+    } else {
+      staticHandlers += `"${name}":${handlerCode},`
     }
-
-    // 拼接 event 的 key value 对象
-    res += `"${name}":${genHandler(name, handler)},`
   }
-
-  // 去掉上面拼接时，最后的逗号，然后补上花括号，组成完整的 events 对象代码
-  return res.slice(0, -1) + '}'
+  staticHandlers = `{${staticHandlers.slice(0, -1)}}`
+  if (dynamicHandlers) {
+    return prefix + `_d(${staticHandlers},[${dynamicHandlers.slice(0, -1)}])`
+  } else {
+    return prefix + staticHandlers
+  }
 }
 
-// 生成事件回调代码
-function genHandler (
-  name: string,
-  handler: ASTElementHandler | Array<ASTElementHandler>
-): string {
+// Generate handler code with binding params on Weex
+/* istanbul ignore next */
+function genWeexHandler (params: Array<any>, handlerCode: string) {
+  let innerHandlerCode = handlerCode
+  const exps = params.filter(exp => simplePathRE.test(exp) && exp !== '$event')
+  const bindings = exps.map(exp => ({ '@binding': exp }))
+  const args = exps.map((exp, i) => {
+    const key = `$_${i + 1}`
+    innerHandlerCode = innerHandlerCode.replace(exp, key)
+    return key
+  })
+  args.push('$event')
+  return '{\n' +
+    `handler:function(${args.join(',')}){${innerHandlerCode}},\n` +
+    `params:${JSON.stringify(bindings)}\n` +
+    '}'
+}
+
+function genHandler (handler: ASTElementHandler | Array<ASTElementHandler>): string {
   if (!handler) {
     return 'function(){}'
   }
 
-  // 如果是 handler 数组，则 map 遍历添加事件回调
   if (Array.isArray(handler)) {
-    return `[${handler.map(handler => genHandler(name, handler)).join(',')}]`
+    return `[${handler.map(handler => genHandler(handler)).join(',')}]`
   }
 
-  // 判断是否满足方法路径名的形式，比如 a.b 这种路径形式
   const isMethodPath = simplePathRE.test(handler.value)
-  // 判断是否满足函数表达式
   const isFunctionExpression = fnExpRE.test(handler.value)
+  const isFunctionInvocation = simplePathRE.test(handler.value.replace(fnInvokeRE, ''))
 
-  // 没有修饰符情况返回的事件函数代码
   if (!handler.modifiers) {
-    return isMethodPath || isFunctionExpression
-      ? handler.value
-      : `function($event){${handler.value}}` // inline statement
+    if (isMethodPath || isFunctionExpression) {
+      return handler.value
+    }
+    /* istanbul ignore if */
+    if (__WEEX__ && handler.params) {
+      return genWeexHandler(handler.params, handler.value)
+    }
+    return `function($event){${
+      isFunctionInvocation ? `return ${handler.value}` : handler.value
+    }}` // inline statement
   } else {
     let code = ''
     let genModifierCode = ''
     const keys = []
-    // 遍历修饰符，收集修饰符对应执行代码
     for (const key in handler.modifiers) {
       if (modifierCode[key]) {
         genModifierCode += modifierCode[key]
@@ -114,21 +143,33 @@ function genHandler (
     if (keys.length) {
       code += genKeyFilter(keys)
     }
-    // 存在修饰符代码，则拼接到最终返回的代码中
+    // Make sure modifiers like prevent and stop get executed after key filtering
     if (genModifierCode) {
       code += genModifierCode
     }
     const handlerCode = isMethodPath
-      ? handler.value + '($event)'
+      ? `return ${handler.value}.apply(null, arguments)`
       : isFunctionExpression
-        ? `(${handler.value})($event)`
-        : handler.value
+        ? `return (${handler.value}).apply(null, arguments)`
+        : isFunctionInvocation
+          ? `return ${handler.value}`
+          : handler.value
+    /* istanbul ignore if */
+    if (__WEEX__ && handler.params) {
+      return genWeexHandler(handler.params, code + handlerCode)
+    }
     return `function($event){${code}${handlerCode}}`
   }
 }
 
 function genKeyFilter (keys: Array<string>): string {
-  return `if(!('button' in $event)&&${keys.map(genFilterCode).join('&&')})return null;`
+  return (
+    // make sure the key filters only apply to KeyboardEvents
+    // #9441: can't use 'keyCode' in $event because Chrome autofill fires fake
+    // key events that do not have keyCode property...
+    `if(!$event.type.indexOf('key')&&` +
+    `${keys.map(genFilterCode).join('&&')})return null;`
+  )
 }
 
 function genFilterCode (key: string): string {
@@ -136,11 +177,14 @@ function genFilterCode (key: string): string {
   if (keyVal) {
     return `$event.keyCode!==${keyVal}`
   }
-  const code = keyCodes[key]
+  const keyCode = keyCodes[key]
+  const keyName = keyNames[key]
   return (
     `_k($event.keyCode,` +
     `${JSON.stringify(key)},` +
-    `${JSON.stringify(code)},` +
-    `$event.key)`
+    `${JSON.stringify(keyCode)},` +
+    `$event.key,` +
+    `${JSON.stringify(keyName)}` +
+    `)`
   )
 }

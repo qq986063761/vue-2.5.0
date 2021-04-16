@@ -1,10 +1,15 @@
 /* @flow */
 
+import { emptyObject } from 'shared/util'
 import { parseFilters } from './parser/filter-parser'
 
-export function baseWarn (msg: string) {
+type Range = { start?: number, end?: number };
+
+/* eslint-disable no-unused-vars */
+export function baseWarn (msg: string, range?: Range) {
   console.error(`[Vue compiler]: ${msg}`)
 }
+/* eslint-enable no-unused-vars */
 
 export function pluckModuleFunction<F: Function> (
   modules: ?Array<Object>,
@@ -15,101 +20,155 @@ export function pluckModuleFunction<F: Function> (
     : []
 }
 
-// 添加 prop 属性到 ast 元素上
-export function addProp (el: ASTElement, name: string, value: string) {
-  (el.props || (el.props = [])).push({ name, value })
+export function addProp (el: ASTElement, name: string, value: string, range?: Range, dynamic?: boolean) {
+  (el.props || (el.props = [])).push(rangeSetItem({ name, value, dynamic }, range))
+  el.plain = false
 }
 
-// 添加 attr 属性到 ast 元素上
-export function addAttr (el: ASTElement, name: string, value: string) {
-  (el.attrs || (el.attrs = [])).push({ name, value })
+export function addAttr (el: ASTElement, name: string, value: any, range?: Range, dynamic?: boolean) {
+  const attrs = dynamic
+    ? (el.dynamicAttrs || (el.dynamicAttrs = []))
+    : (el.attrs || (el.attrs = []))
+  attrs.push(rangeSetItem({ name, value, dynamic }, range))
+  el.plain = false
 }
 
-// 添加指令相关属性到 ast 元素中
+// add a raw attr (use this in preTransforms)
+export function addRawAttr (el: ASTElement, name: string, value: any, range?: Range) {
+  el.attrsMap[name] = value
+  el.attrsList.push(rangeSetItem({ name, value }, range))
+}
+
 export function addDirective (
   el: ASTElement,
   name: string,
   rawName: string,
   value: string,
   arg: ?string,
-  modifiers: ?ASTModifiers
+  isDynamicArg: boolean,
+  modifiers: ?ASTModifiers,
+  range?: Range
 ) {
-  // 将指令数据添加到 el.directives 中
-  (el.directives || (el.directives = [])).push({ name, rawName, value, arg, modifiers })
+  (el.directives || (el.directives = [])).push(rangeSetItem({
+    name,
+    rawName,
+    value,
+    arg,
+    isDynamicArg,
+    modifiers
+  }, range))
+  el.plain = false
 }
 
-// 给元素添加 events 相关事件回调
+function prependModifierMarker (symbol: string, name: string, dynamic?: boolean): string {
+  return dynamic
+    ? `_p(${name},"${symbol}")`
+    : symbol + name // mark the event as captured
+}
+
 export function addHandler (
   el: ASTElement,
   name: string,
   value: string,
   modifiers: ?ASTModifiers,
   important?: boolean,
-  warn?: Function
+  warn?: ?Function,
+  range?: Range,
+  dynamic?: boolean
 ) {
+  modifiers = modifiers || emptyObject
   // warn prevent and passive modifier
   /* istanbul ignore if */
   if (
     process.env.NODE_ENV !== 'production' && warn &&
-    modifiers && modifiers.prevent && modifiers.passive
+    modifiers.prevent && modifiers.passive
   ) {
     warn(
       'passive and prevent can\'t be used together. ' +
-      'Passive handler can\'t prevent default event.'
+      'Passive handler can\'t prevent default event.',
+      range
     )
   }
-  // 对 capture 修饰符，添加一个标记
-  if (modifiers && modifiers.capture) {
+
+  // normalize click.right and click.middle since they don't actually fire
+  // this is technically browser-specific, but at least for now browsers are
+  // the only target envs that have right/middle clicks.
+  if (modifiers.right) {
+    if (dynamic) {
+      name = `(${name})==='click'?'contextmenu':(${name})`
+    } else if (name === 'click') {
+      name = 'contextmenu'
+      delete modifiers.right
+    }
+  } else if (modifiers.middle) {
+    if (dynamic) {
+      name = `(${name})==='click'?'mouseup':(${name})`
+    } else if (name === 'click') {
+      name = 'mouseup'
+    }
+  }
+
+  // check capture modifier
+  if (modifiers.capture) {
     delete modifiers.capture
-    name = '!' + name
+    name = prependModifierMarker('!', name, dynamic)
   }
-  // 对 once 修饰符，添加一个标记
-  if (modifiers && modifiers.once) {
+  if (modifiers.once) {
     delete modifiers.once
-    name = '~' + name
+    name = prependModifierMarker('~', name, dynamic)
   }
-  // 对 passive 修饰符，添加一个标记
-  if (modifiers && modifiers.passive) {
+  /* istanbul ignore if */
+  if (modifiers.passive) {
     delete modifiers.passive
-    name = '&' + name
+    name = prependModifierMarker('&', name, dynamic)
   }
+
   let events
-  if (modifiers && modifiers.native) {
+  if (modifiers.native) {
     delete modifiers.native
     events = el.nativeEvents || (el.nativeEvents = {})
   } else {
     events = el.events || (el.events = {})
   }
-  const newHandler = { value, modifiers }
+
+  const newHandler: any = rangeSetItem({ value: value.trim(), dynamic }, range)
+  if (modifiers !== emptyObject) {
+    newHandler.modifiers = modifiers
+  }
+
   const handlers = events[name]
-  
-  // 添加事件回调
+  /* istanbul ignore if */
   if (Array.isArray(handlers)) {
     important ? handlers.unshift(newHandler) : handlers.push(newHandler)
   } else if (handlers) {
-    // 根据事件执行优先级来安排事件回调位置
     events[name] = important ? [newHandler, handlers] : [handlers, newHandler]
   } else {
     events[name] = newHandler
   }
+
+  el.plain = false
 }
 
-// 获取绑定属性
+export function getRawBindingAttr (
+  el: ASTElement,
+  name: string
+) {
+  return el.rawAttrsMap[':' + name] ||
+    el.rawAttrsMap['v-bind:' + name] ||
+    el.rawAttrsMap[name]
+}
+
 export function getBindingAttr (
   el: ASTElement,
   name: string,
   getStatic?: boolean
 ): ?string {
-  // 获取动态绑定属性
   const dynamicValue =
     getAndRemoveAttr(el, ':' + name) ||
     getAndRemoveAttr(el, 'v-bind:' + name)
-
-  // 如果绑定属性是动态的
   if (dynamicValue != null) {
     return parseFilters(dynamicValue)
   } else if (getStatic !== false) {
-    // 获取静态属性值
     const staticValue = getAndRemoveAttr(el, name)
     if (staticValue != null) {
       return JSON.stringify(staticValue)
@@ -117,7 +176,10 @@ export function getBindingAttr (
   }
 }
 
-// 从 ast 元素中移除 attrsList 中对应属性
+// note: this only removes the attr from the Array (attrsList) so that it
+// doesn't get processed by processAttrs.
+// By default it does NOT remove it from the map (attrsMap) because the map is
+// needed during codegen.
 export function getAndRemoveAttr (
   el: ASTElement,
   name: string,
@@ -137,4 +199,33 @@ export function getAndRemoveAttr (
     delete el.attrsMap[name]
   }
   return val
+}
+
+export function getAndRemoveAttrByRegex (
+  el: ASTElement,
+  name: RegExp
+) {
+  const list = el.attrsList
+  for (let i = 0, l = list.length; i < l; i++) {
+    const attr = list[i]
+    if (name.test(attr.name)) {
+      list.splice(i, 1)
+      return attr
+    }
+  }
+}
+
+function rangeSetItem (
+  item: any,
+  range?: { start?: number, end?: number }
+) {
+  if (range) {
+    if (range.start != null) {
+      item.start = range.start
+    }
+    if (range.end != null) {
+      item.end = range.end
+    }
+  }
+  return item
 }

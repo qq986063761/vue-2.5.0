@@ -2,6 +2,7 @@
 
 import { noop, extend } from 'shared/util'
 import { warn as baseWarn, tip } from 'core/util/debug'
+import { generateCodeFrame } from './codeframe'
 
 type CompiledFunctionResult = {
   render: Function;
@@ -18,9 +19,7 @@ function createFunction (code, errors) {
 }
 
 export function createCompileToFunctionFn (compile: Function): Function {
-  const cache: {
-    [key: string]: CompiledFunctionResult;
-  } = Object.create(null)
+  const cache = Object.create(null)
 
   return function compileToFunctions (
     template: string,
@@ -49,7 +48,7 @@ export function createCompileToFunctionFn (compile: Function): Function {
       }
     }
 
-    // 缓存处理
+    // check cache
     const key = options.delimiters
       ? String(options.delimiters) + template
       : template
@@ -57,27 +56,40 @@ export function createCompileToFunctionFn (compile: Function): Function {
       return cache[key]
     }
 
-    // 开始编译，获取编译后的结果对象
+    // compile
     const compiled = compile(template, options)
 
     // check compilation errors/tips
     if (process.env.NODE_ENV !== 'production') {
       if (compiled.errors && compiled.errors.length) {
-        warn(
-          `Error compiling template:\n\n${template}\n\n` +
-          compiled.errors.map(e => `- ${e}`).join('\n') + '\n',
-          vm
-        )
+        if (options.outputSourceRange) {
+          compiled.errors.forEach(e => {
+            warn(
+              `Error compiling template:\n\n${e.msg}\n\n` +
+              generateCodeFrame(template, e.start, e.end),
+              vm
+            )
+          })
+        } else {
+          warn(
+            `Error compiling template:\n\n${template}\n\n` +
+            compiled.errors.map(e => `- ${e}`).join('\n') + '\n',
+            vm
+          )
+        }
       }
       if (compiled.tips && compiled.tips.length) {
-        compiled.tips.forEach(msg => tip(msg, vm))
+        if (options.outputSourceRange) {
+          compiled.tips.forEach(e => tip(e.msg, vm))
+        } else {
+          compiled.tips.forEach(msg => tip(msg, vm))
+        }
       }
     }
 
     // turn code into functions
     const res = {}
     const fnGenErrors = []
-    // 调用 createFunction 将 render 内容转换为函数对象
     res.render = createFunction(compiled.render, fnGenErrors)
     res.staticRenderFns = compiled.staticRenderFns.map(code => {
       return createFunction(code, fnGenErrors)
@@ -97,7 +109,6 @@ export function createCompileToFunctionFn (compile: Function): Function {
       }
     }
 
-    // 返回最终编译结果，同时缓存编译结果
     return (cache[key] = res)
   }
 }

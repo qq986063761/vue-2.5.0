@@ -1,30 +1,34 @@
 /* @flow */
 
+import VNode from '../vnode'
 import { createFnInvoker } from './update-listeners'
 import { remove, isDef, isUndef, isTrue } from 'shared/util'
 
-// 合并 vnode hook
 export function mergeVNodeHook (def: Object, hookKey: string, hook: Function) {
+  if (def instanceof VNode) {
+    def = def.data.hook || (def.data.hook = {})
+  }
   let invoker
-  // 先获取老 hook
   const oldHook = def[hookKey]
 
   function wrappedHook () {
     hook.apply(this, arguments)
-    // 移除合并的 hook 保证只调用一次，避免内存泄漏
+    // important: remove merged hook to ensure it's called only once
+    // and prevent memory leak
     remove(invoker.fns, wrappedHook)
   }
 
   if (isUndef(oldHook)) {
-    // 不存在老 hook，则创建一个新的执行函数
+    // no existing hook
     invoker = createFnInvoker([wrappedHook])
   } else {
+    /* istanbul ignore if */
     if (isDef(oldHook.fns) && isTrue(oldHook.merged)) {
-      // 已经合并过的 hook，直接添加到执行函数的 fns 中，执行时就会遍历调用
+      // already a merged invoker
       invoker = oldHook
       invoker.fns.push(wrappedHook)
     } else {
-      // 对于已经存在老 hook，则合并成 hook 数组创建新的执行函数
+      // existing plain hook
       invoker = createFnInvoker([oldHook, wrappedHook])
     }
   }

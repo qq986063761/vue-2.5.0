@@ -6,8 +6,8 @@ import { mark, measure } from 'core/util/perf'
 
 import Vue from './runtime/index'
 import { query } from './util/index'
-import { shouldDecodeNewlines } from './util/compat'
 import { compileToFunctions } from './compiler/index'
+import { shouldDecodeNewlines, shouldDecodeNewlinesForHref } from './util/compat'
 
 const idToTemplate = cached(id => {
   const el = query(id)
@@ -19,10 +19,9 @@ Vue.prototype.$mount = function (
   el?: string | Element,
   hydrating?: boolean
 ): Component {
-  // 获取用于挂载的 dom 元素
   el = el && query(el)
 
-  /* 禁止元素挂载到 body html 元素上 */
+  /* istanbul ignore if */
   if (el === document.body || el === document.documentElement) {
     process.env.NODE_ENV !== 'production' && warn(
       `Do not mount Vue to <html> or <body> - mount to normal elements instead.`
@@ -31,7 +30,7 @@ Vue.prototype.$mount = function (
   }
 
   const options = this.$options
-  // 如果没有定义render函数，则通过 template 或 el 解析生成 render 函数
+  // resolve template/el and convert to render function
   if (!options.render) {
     let template = options.template
     if (template) {
@@ -64,7 +63,9 @@ Vue.prototype.$mount = function (
       }
 
       const { render, staticRenderFns } = compileToFunctions(template, {
+        outputSourceRange: process.env.NODE_ENV !== 'production',
         shouldDecodeNewlines,
+        shouldDecodeNewlinesForHref,
         delimiters: options.delimiters,
         comments: options.comments
       }, this)
@@ -78,8 +79,6 @@ Vue.prototype.$mount = function (
       }
     }
   }
-
-  // 调用核心mount函数
   return mount.call(this, el, hydrating)
 }
 

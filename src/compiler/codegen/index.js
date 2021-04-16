@@ -4,12 +4,12 @@ import { genHandlers } from './events'
 import baseDirectives from '../directives/index'
 import { camelize, no, extend } from 'shared/util'
 import { baseWarn, pluckModuleFunction } from '../helpers'
+import { emptySlotScopeToken } from '../parser/index'
 
 type TransformFunction = (el: ASTElement, code: string) => string;
 type DataGenFunction = (el: ASTElement) => string;
 type DirectiveFunction = (el: ASTElement, dir: ASTDirective, warn: Function) => boolean;
 
-// 生成代码的一个状态类
 export class CodegenState {
   options: CompilerOptions;
   warn: Function;
@@ -19,19 +19,19 @@ export class CodegenState {
   maybeComponent: (el: ASTElement) => boolean;
   onceId: number;
   staticRenderFns: Array<string>;
+  pre: boolean;
 
   constructor (options: CompilerOptions) {
     this.options = options
     this.warn = options.warn || baseWarn
     this.transforms = pluckModuleFunction(options.modules, 'transformCode')
     this.dataGenFns = pluckModuleFunction(options.modules, 'genData')
-    // baseDirectives 中包含 on, bind, cloak
-    // options.directives 中包含 model, text, html 源码在 src/platforms/web/compiler/directives/index.js 中
     this.directives = extend(extend({}, baseDirectives), options.directives)
     const isReservedTag = options.isReservedTag || no
-    this.maybeComponent = (el: ASTElement) => !isReservedTag(el.tag)
+    this.maybeComponent = (el: ASTElement) => !!el.component || !isReservedTag(el.tag)
     this.onceId = 0
     this.staticRenderFns = []
+    this.pre = false
   }
 }
 
@@ -45,8 +45,8 @@ export function generate (
   options: CompilerOptions
 ): CodegenResult {
   const state = new CodegenState(options)
-  // 生成代码
-  const code = ast ? genElement(ast, state) : '_c("div")'
+  // fix #11483, Root level <script> tags should not be rendered.
+  const code = ast ? (ast.tag === 'script' ? 'null' : genElement(ast, state)) : '_c("div")'
   return {
     render: `with(this){return ${code}}`,
     staticRenderFns: state.staticRenderFns
@@ -54,7 +54,10 @@ export function generate (
 }
 
 export function genElement (el: ASTElement, state: CodegenState): string {
-  // 下面的不同分支是针对 ast 元素存在对应的属性，则执行对应的代码生成方法
+  if (el.parent) {
+    el.pre = el.pre || el.parent.pre
+  }
+
   if (el.staticRoot && !el.staticProcessed) {
     return genStatic(el, state)
   } else if (el.once && !el.onceProcessed) {
@@ -63,10 +66,9 @@ export function genElement (el: ASTElement, state: CodegenState): string {
     return genFor(el, state)
   } else if (el.if && !el.ifProcessed) {
     return genIf(el, state)
-  } else if (el.tag === 'template' && !el.slotTarget) {
+  } else if (el.tag === 'template' && !el.slotTarget && !state.pre) {
     return genChildren(el, state) || 'void 0'
   } else if (el.tag === 'slot') {
-    // 生成 slot 相关代码
     return genSlot(el, state)
   } else {
     // component or element
@@ -74,10 +76,11 @@ export function genElement (el: ASTElement, state: CodegenState): string {
     if (el.component) {
       code = genComponent(el.component, el, state)
     } else {
-      // 生成 data 属性配置部分的代码
-      const data = el.plain ? undefined : genData(el, state)
+      let data
+      if (!el.plain || (el.pre && state.maybeComponent(el))) {
+        data = genData(el, state)
+      }
 
-      // 生成子节点代码
       const children = el.inlineTemplate ? null : genChildren(el, state, true)
       code = `_c('${el.tag}'${
         data ? `,${data}` : '' // data
@@ -85,7 +88,7 @@ export function genElement (el: ASTElement, state: CodegenState): string {
         children ? `,${children}` : '' // children
       })`
     }
-    // 遍历调用一些模块方法获取一些代码，源码在 src/platforms/web/compiler/modules 的几个文件中
+    // module transforms
     for (let i = 0; i < state.transforms.length; i++) {
       code = state.transforms[i](el, code)
     }
@@ -96,8 +99,20 @@ export function genElement (el: ASTElement, state: CodegenState): string {
 // hoist static sub-trees out
 function genStatic (el: ASTElement, state: CodegenState): string {
   el.staticProcessed = true
+  // Some elements (templates) need to behave differently inside of a v-pre
+  // node.  All pre nodes are static roots, so we can use this as a location to
+  // wrap a state change and reset it upon exiting the pre node.
+  const originalPreState = state.pre
+  if (el.pre) {
+    state.pre = el.pre
+  }
   state.staticRenderFns.push(`with(this){return ${genElement(el, state)}}`)
-  return `_m(${state.staticRenderFns.length - 1}${el.staticInFor ? ',true' : ''})`
+  state.pre = originalPreState
+  return `_m(${
+    state.staticRenderFns.length - 1
+  }${
+    el.staticInFor ? ',true' : ''
+  })`
 }
 
 // v-once
@@ -117,7 +132,8 @@ function genOnce (el: ASTElement, state: CodegenState): string {
     }
     if (!key) {
       process.env.NODE_ENV !== 'production' && state.warn(
-        `v-once can only be used inside v-for that is keyed. `
+        `v-once can only be used inside v-for that is keyed. `,
+        el.rawAttrsMap['v-once']
       )
       return genElement(el, state)
     }
@@ -133,8 +149,7 @@ export function genIf (
   altGen?: Function,
   altEmpty?: string
 ): string {
-  // 避免无限递归调用的标识，设置为 true 之后下次不会再进入这个逻辑了
-  el.ifProcessed = true 
+  el.ifProcessed = true // avoid recursion
   return genIfConditions(el.ifConditions.slice(), state, altGen, altEmpty)
 }
 
@@ -144,16 +159,12 @@ function genIfConditions (
   altGen?: Function,
   altEmpty?: string
 ): string {
-  // 如果没有条件，则返回空函数
   if (!conditions.length) {
     return altEmpty || '_e()'
   }
 
-  // 取一个条件数据出来
   const condition = conditions.shift()
-  // 如果存在条件表达式
   if (condition.exp) {
-    // 返回三元运算代码，条件成立则调用 genTernaryExp 方法生成元素构造的 render 代码
     return `(${condition.exp})?${
       genTernaryExp(condition.block)
     }:${
@@ -194,13 +205,12 @@ export function genFor (
       `<${el.tag} v-for="${alias} in ${exp}">: component lists rendered with ` +
       `v-for should have explicit keys. ` +
       `See https://vuejs.org/guide/list.html#key for more info.`,
+      el.rawAttrsMap['v-for'],
       true /* tip */
     )
   }
 
-  // 设置标识避免无限递归
-  el.forProcessed = true
-  // 返回 v-for 代码
+  el.forProcessed = true // avoid recursion
   return `${altHelper || '_l'}((${exp}),` +
     `function(${alias}${iterator1}${iterator2}){` +
       `return ${(altGen || genElement)(el, state)}` +
@@ -210,7 +220,8 @@ export function genFor (
 export function genData (el: ASTElement, state: CodegenState): string {
   let data = '{'
 
-  // 生成指令相关代码，这里先执行是因为后续改动可能会改动到指令部分的代码
+  // directives first.
+  // directives may mutate the el's other properties before they are generated.
   const dirs = genDirectives(el, state)
   if (dirs) data += dirs + ','
 
@@ -233,36 +244,35 @@ export function genData (el: ASTElement, state: CodegenState): string {
   if (el.component) {
     data += `tag:"${el.tag}",`
   }
-  // 模块数据生成
+  // module data generation functions
   for (let i = 0; i < state.dataGenFns.length; i++) {
     data += state.dataGenFns[i](el)
   }
   // attributes
   if (el.attrs) {
-    data += `attrs:{${genProps(el.attrs)}},`
+    data += `attrs:${genProps(el.attrs)},`
   }
   // DOM props
   if (el.props) {
-    data += `domProps:{${genProps(el.props)}},`
+    data += `domProps:${genProps(el.props)},`
   }
-  // 添加 data 的 events 属性
+  // event handlers
   if (el.events) {
-    data += `${genHandlers(el.events, false, state.warn)},`
+    data += `${genHandlers(el.events, false)},`
   }
   if (el.nativeEvents) {
-    data += `${genHandlers(el.nativeEvents, true, state.warn)},`
+    data += `${genHandlers(el.nativeEvents, true)},`
   }
-  // 对于不是作用域 slot 的其他 slot 追加代码，这段代码只会追加到父组件上，提供给子组件用
+  // slot target
+  // only for non-scoped slots
   if (el.slotTarget && !el.slotScope) {
     data += `slot:${el.slotTarget},`
   }
-
-  // 如果是作用域 slot
+  // scoped slots
   if (el.scopedSlots) {
-    data += `${genScopedSlots(el.scopedSlots, state)},`
+    data += `${genScopedSlots(el, el.scopedSlots, state)},`
   }
-
-  // 如果 v-model 定义在组件上，则生成组件相关代码对象
+  // component v-model
   if (el.model) {
     data += `model:{value:${
       el.model.value
@@ -272,7 +282,6 @@ export function genData (el: ASTElement, state: CodegenState): string {
       el.model.expression
     }},`
   }
-
   // inline-template
   if (el.inlineTemplate) {
     const inlineTemplate = genInlineTemplate(el, state)
@@ -281,6 +290,12 @@ export function genData (el: ASTElement, state: CodegenState): string {
     }
   }
   data = data.replace(/,$/, '') + '}'
+  // v-bind dynamic argument wrap
+  // v-bind with dynamic arguments must be applied using the same v-bind object
+  // merge helper so that class/style/mustUseProp attrs are handled correctly.
+  if (el.dynamicAttrs) {
+    data = `_b(${data},"${el.tag}",${genProps(el.dynamicAttrs)})`
+  }
   // v-bind data wrap
   if (el.wrapData) {
     data = el.wrapData(data)
@@ -292,42 +307,32 @@ export function genData (el: ASTElement, state: CodegenState): string {
   return data
 }
 
-// 生成指令相关代码
 function genDirectives (el: ASTElement, state: CodegenState): string | void {
   const dirs = el.directives
   if (!dirs) return
-
-  // 初始化指令对象代码开头，key 是 directives，值是数组
   let res = 'directives:['
   let hasRuntime = false
   let i, l, dir, needRuntime
-
-  // 遍历指令
   for (i = 0, l = dirs.length; i < l; i++) {
     dir = dirs[i]
     needRuntime = true
-    // 通过指令名称，获取对应的指令代码生成函数
-    // state.directives 是一个 CodegenState 类型对象，定义在顶部
     const gen: DirectiveFunction = state.directives[dir.name]
-    
     if (gen) {
-      // 如果指令函数执行后，返回 true，则说明需要一个运行时的副本
+      // compile-time directive that manipulates AST.
+      // returns true if it also needs a runtime counterpart.
       needRuntime = !!gen(el, dir, state.warn)
     }
-
-    // 如果需要运行时副本，则追加下面的一段代码
     if (needRuntime) {
       hasRuntime = true
       res += `{name:"${dir.name}",rawName:"${dir.rawName}"${
         dir.value ? `,value:(${dir.value}),expression:${JSON.stringify(dir.value)}` : ''
       }${
-        dir.arg ? `,arg:"${dir.arg}"` : ''
+        dir.arg ? `,arg:${dir.isDynamicArg ? dir.arg : `"${dir.arg}"`}` : ''
       }${
         dir.modifiers ? `,modifiers:${JSON.stringify(dir.modifiers)}` : ''
       }},`
     }
   }
-  
   if (hasRuntime) {
     return res.slice(0, -1) + ']'
   }
@@ -338,9 +343,12 @@ function genInlineTemplate (el: ASTElement, state: CodegenState): ?string {
   if (process.env.NODE_ENV !== 'production' && (
     el.children.length !== 1 || ast.type !== 1
   )) {
-    state.warn('Inline-template components must have exactly one child element.')
+    state.warn(
+      'Inline-template components must have exactly one child element.',
+      { start: el.start }
+    )
   }
-  if (ast.type === 1) {
+  if (ast && ast.type === 1) {
     const inlineRenderFns = generate(ast, state.options)
     return `inlineTemplate:{render:function(){${
       inlineRenderFns.render
@@ -350,62 +358,107 @@ function genInlineTemplate (el: ASTElement, state: CodegenState): ?string {
   }
 }
 
-// 生成作用域 slots 相关代码
 function genScopedSlots (
+  el: ASTElement,
   slots: { [key: string]: ASTElement },
   state: CodegenState
 ): string {
-  // 返回 {scopedSlots: _u(...)} 代码，运行时会执行 _u 方法
-  // _u 方法定义在 src/core/instance/render-helpers/index.js
-  return `scopedSlots:_u([${
-    // 这里作用域 slot 场景，slots 是：{default: {...}} 这样一个对象
-    // 遍历 slots 将每个 key 对应的内容生成代码
-    Object.keys(slots).map(key => {
-      return genScopedSlot(key, slots[key], state)
-    }).join(',')
-  }])`
+  // by default scoped slots are considered "stable", this allows child
+  // components with only scoped slots to skip forced updates from parent.
+  // but in some cases we have to bail-out of this optimization
+  // for example if the slot contains dynamic names, has v-if or v-for on them...
+  let needsForceUpdate = el.for || Object.keys(slots).some(key => {
+    const slot = slots[key]
+    return (
+      slot.slotTargetDynamic ||
+      slot.if ||
+      slot.for ||
+      containsSlotChild(slot) // is passing down slot from parent which may be dynamic
+    )
+  })
+
+  // #9534: if a component with scoped slots is inside a conditional branch,
+  // it's possible for the same component to be reused but with different
+  // compiled slot content. To avoid that, we generate a unique key based on
+  // the generated code of all the slot contents.
+  let needsKey = !!el.if
+
+  // OR when it is inside another scoped slot or v-for (the reactivity may be
+  // disconnected due to the intermediate scope variable)
+  // #9438, #9506
+  // TODO: this can be further optimized by properly analyzing in-scope bindings
+  // and skip force updating ones that do not actually use scope variables.
+  if (!needsForceUpdate) {
+    let parent = el.parent
+    while (parent) {
+      if (
+        (parent.slotScope && parent.slotScope !== emptySlotScopeToken) ||
+        parent.for
+      ) {
+        needsForceUpdate = true
+        break
+      }
+      if (parent.if) {
+        needsKey = true
+      }
+      parent = parent.parent
+    }
+  }
+
+  const generatedSlots = Object.keys(slots)
+    .map(key => genScopedSlot(slots[key], state))
+    .join(',')
+
+  return `scopedSlots:_u([${generatedSlots}]${
+    needsForceUpdate ? `,null,true` : ``
+  }${
+    !needsForceUpdate && needsKey ? `,null,false,${hash(generatedSlots)}` : ``
+  })`
 }
 
-// 生成单个作用域 key 对应 name 的 slot 代码
+function hash(str) {
+  let hash = 5381
+  let i = str.length
+  while(i) {
+    hash = (hash * 33) ^ str.charCodeAt(--i)
+  }
+  return hash >>> 0
+}
+
+function containsSlotChild (el: ASTNode): boolean {
+  if (el.type === 1) {
+    if (el.tag === 'slot') {
+      return true
+    }
+    return el.children.some(containsSlotChild)
+  }
+  return false
+}
+
 function genScopedSlot (
-  key: string,
   el: ASTElement,
   state: CodegenState
 ): string {
-  if (el.for && !el.forProcessed) {
-    return genForScopedSlot(key, el, state)
+  const isLegacySyntax = el.attrsMap['slot-scope']
+  if (el.if && !el.ifProcessed && !isLegacySyntax) {
+    return genIf(el, state, genScopedSlot, `null`)
   }
-
-  // 生成渲染元素的函数调用代码，类似 render 函数内部 return 的内容
-  // el.slotScope 就是用户定义的作用域对象名
-  const fn = `function(${String(el.slotScope)}){` +
+  if (el.for && !el.forProcessed) {
+    return genFor(el, state, genScopedSlot)
+  }
+  const slotScope = el.slotScope === emptySlotScopeToken
+    ? ``
+    : String(el.slotScope)
+  const fn = `function(${slotScope}){` +
     `return ${el.tag === 'template'
-      ? el.if
-        // genChildren 这里返回 template 中的子节点代码
-        ? `${el.if}?${genChildren(el, state) || 'undefined'}:undefined`
+      ? el.if && isLegacySyntax
+        ? `(${el.if})?${genChildren(el, state) || 'undefined'}:undefined`
         : genChildren(el, state) || 'undefined'
       : genElement(el, state)
-  }}`
-
-  // 返回一个 slot key、fn 的关系对象代码
-  // 比如作用域 slot 时，这里返回的就是 {key: default, fn: function (scopeProps) {...}}
-  return `{key:${key},fn:${fn}}`
-}
-
-function genForScopedSlot (
-  key: string,
-  el: any,
-  state: CodegenState
-): string {
-  const exp = el.for
-  const alias = el.alias
-  const iterator1 = el.iterator1 ? `,${el.iterator1}` : ''
-  const iterator2 = el.iterator2 ? `,${el.iterator2}` : ''
-  el.forProcessed = true // avoid recursion
-  return `_l((${exp}),` +
-    `function(${alias}${iterator1}${iterator2}){` +
-      `return ${genScopedSlot(key, el, state)}` +
-    '})'
+    }}`
+  // reverse proxy v-slot without scope on this.$slots
+  const reverseProxy = slotScope ? `` : `,proxy:true`
+  return `{key:${el.slotTarget || `"default"`},fn:${fn}${reverseProxy}}`
 }
 
 export function genChildren (
@@ -418,13 +471,16 @@ export function genChildren (
   const children = el.children
   if (children.length) {
     const el: any = children[0]
-    // 优化 v-for
+    // optimize single v-for
     if (children.length === 1 &&
       el.for &&
       el.tag !== 'template' &&
       el.tag !== 'slot'
     ) {
-      return (altGenElement || genElement)(el, state)
+      const normalizationType = checkSkip
+        ? state.maybeComponent(el) ? `,1` : `,0`
+        : ``
+      return `${(altGenElement || genElement)(el, state)}${normalizationType}`
     }
     const normalizationType = checkSkip
       ? getNormalizationType(children, state.maybeComponent)
@@ -470,7 +526,7 @@ function needsNormalization (el: ASTElement): boolean {
 function genNode (node: ASTNode, state: CodegenState): string {
   if (node.type === 1) {
     return genElement(node, state)
-  } if (node.type === 3 && node.isComment) {
+  } else if (node.type === 3 && node.isComment) {
     return genComment(node)
   } else {
     return genText(node)
@@ -490,26 +546,26 @@ export function genComment (comment: ASTText): string {
 
 function genSlot (el: ASTElement, state: CodegenState): string {
   const slotName = el.slotName || '"default"'
-  // 获取 slot 内部默认写入的子节点代码
   const children = genChildren(el, state)
-  // 拼接 _t 方法的代码，_t 方法定义在 src/core/instance/render-helpers/index.js
   let res = `_t(${slotName}${children ? `,${children}` : ''}`
-  // 构造 slot 属性，比如作用域 slot 上的属性key value，例如 attrs 可以是：{prop: value}
-  const attrs = el.attrs && `{${el.attrs.map(a => `${camelize(a.name)}:${a.value}`).join(',')}}`
+  const attrs = el.attrs || el.dynamicAttrs
+    ? genProps((el.attrs || []).concat(el.dynamicAttrs || []).map(attr => ({
+        // slot props are camelized
+        name: camelize(attr.name),
+        value: attr.value,
+        dynamic: attr.dynamic
+      })))
+    : null
   const bind = el.attrsMap['v-bind']
-  // 没有子节点就拼接 null
   if ((attrs || bind) && !children) {
     res += `,null`
   }
-  // 拼接 render data 中的 attrs
   if (attrs) {
     res += `,${attrs}`
   }
   if (bind) {
     res += `${attrs ? '' : ',null'},${bind}`
   }
-  
-  // 最终返回的格式类似：_t("default", null, {prop: value})
   return res + ')'
 }
 
@@ -525,13 +581,34 @@ function genComponent (
   })`
 }
 
-function genProps (props: Array<{ name: string, value: string }>): string {
-  let res = ''
+function genProps (props: Array<ASTAttr>): string {
+  let staticProps = ``
+  let dynamicProps = ``
   for (let i = 0; i < props.length; i++) {
     const prop = props[i]
-    res += `"${prop.name}":${transformSpecialNewlines(prop.value)},`
+    const value = __WEEX__
+      ? generateValue(prop.value)
+      : transformSpecialNewlines(prop.value)
+    if (prop.dynamic) {
+      dynamicProps += `${prop.name},${value},`
+    } else {
+      staticProps += `"${prop.name}":${value},`
+    }
   }
-  return res.slice(0, -1)
+  staticProps = `{${staticProps.slice(0, -1)}}`
+  if (dynamicProps) {
+    return `_d(${staticProps},[${dynamicProps.slice(0, -1)}])`
+  } else {
+    return staticProps
+  }
+}
+
+/* istanbul ignore next */
+function generateValue (value) {
+  if (typeof value === 'string') {
+    return transformSpecialNewlines(value)
+  }
+  return JSON.stringify(value)
 }
 
 // #3895, #4268
