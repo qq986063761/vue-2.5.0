@@ -13,14 +13,7 @@
   - Dep 入口文件：core\observer\dep.js
   - 组件渲染相关 api 入口文件：core\instance\lifecycle.js
   - patch 函数相关 api 入口文件：core\vdom\patch.js
-- compiler：编译相关代码
-  - 编译模板、render 等：compiler\index.js
-- shared：公用的配置、工具类等
-
-# new Vue
-- 在文件：src\core\instance\index.js 中，会调用 Vue 方法初始化 vue
-- 内部调用 this._init(options) 方法初始化属性
-- 在 _init 中调用一系列方法：initLifecycle、initEvents、initRender、initInjections、initState、initProvide 初始化属性，最后调用 vm.$mount(vm.$options.el) 渲染元素
+- shared：公用的配置、工具等
 
 # 响应式原理
 - 在初始化 Vue 属性时，initState 方法中开始定义响应式，initState 在文件：src\core\instance\state.js 中
