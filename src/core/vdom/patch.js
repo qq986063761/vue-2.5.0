@@ -74,7 +74,8 @@ export function createPatchFunction (backend) {
   // nodeOps 是 dom 元素相关封装方法，在文件 src/platforms/web/runtime/node-ops.js
   // modules 是 ref directives attrs class events domProps style transition 相关 hook
   const { modules, nodeOps } = backend
-
+  // 按 hooks 的每个钩子 {create: [], activate: [], update: [], remove: [], destroy: []}
+  // 分别创建一个对应数组在 cbs 对象中，然后把 modules 中每个模块的 hooks 对象中对应的 hook 都追加到 cbs 对应 hook key 数组中
   for (i = 0; i < hooks.length; ++i) {
     cbs[hooks[i]] = []
     for (j = 0; j < modules.length; ++j) {
@@ -143,6 +144,7 @@ export function createPatchFunction (backend) {
     }
 
     vnode.isRootInsert = !nested // for transition enter check
+    // 这里会创建一个组件，如果 vnode 是组件节点，这里就结束了不会继续往后面走
     if (createComponent(vnode, insertedVnodeQueue, parentElm, refElm)) {
       return
     }
@@ -155,6 +157,7 @@ export function createPatchFunction (backend) {
         if (data && data.pre) {
           creatingElmInVPre++
         }
+        // tag 名不是原生标签，然后又不是组件的 tag 名，就提醒
         if (isUnknownElement(vnode, creatingElmInVPre)) {
           warn(
             'Unknown custom element: <' + tag + '> - did you ' +
@@ -164,7 +167,8 @@ export function createPatchFunction (backend) {
           )
         }
       }
-
+      
+      // 创建 dom 元素
       vnode.elm = vnode.ns
         ? nodeOps.createElementNS(vnode.ns, tag)
         : nodeOps.createElement(tag, vnode)
@@ -190,20 +194,24 @@ export function createPatchFunction (backend) {
           insert(parentElm, vnode.elm, refElm)
         }
       } else {
+        // 先递归创建子节点对应 dom 元素，最终后面再统一挂到父元素下
         createChildren(vnode, children, insertedVnodeQueue)
         if (isDef(data)) {
           invokeCreateHooks(vnode, insertedVnodeQueue)
         }
+        // 将 vnode 对应元素添加到父元素下
         insert(parentElm, vnode.elm, refElm)
       }
 
       if (process.env.NODE_ENV !== 'production' && data && data.pre) {
         creatingElmInVPre--
       }
+    // 如果节点是注释节点，则创建注释元素
     } else if (isTrue(vnode.isComment)) {
       vnode.elm = nodeOps.createComment(vnode.text)
       insert(parentElm, vnode.elm, refElm)
     } else {
+      // 如果是文本节点，就创建文本元素
       vnode.elm = nodeOps.createTextNode(vnode.text)
       insert(parentElm, vnode.elm, refElm)
     }
@@ -273,6 +281,7 @@ export function createPatchFunction (backend) {
 
   function insert (parent, elm, ref) {
     if (isDef(parent)) {
+      // 如果有参考节点，且参考节点的父节点和当前插入的父节点是同一个节点，则将当前 vnode 对应元素插入到参考元素之前
       if (isDef(ref)) {
         if (nodeOps.parentNode(ref) === parent) {
           nodeOps.insertBefore(parent, elm, ref)
@@ -288,6 +297,7 @@ export function createPatchFunction (backend) {
       if (process.env.NODE_ENV !== 'production') {
         checkDuplicateKeys(children)
       }
+      // 如果 vnode 还存在子节点，则将 insertedVnodeQueue 插入到子节点元素下
       for (let i = 0; i < children.length; ++i) {
         createElm(children[i], insertedVnodeQueue, vnode.elm, null, true, children, i)
       }
@@ -700,6 +710,7 @@ export function createPatchFunction (backend) {
   }
 
   return function patch (oldVnode, vnode, hydrating, removeOnly) {
+    // 没有 vnode，走删除元素逻辑
     if (isUndef(vnode)) {
       if (isDef(oldVnode)) invokeDestroyHook(oldVnode)
       return
@@ -713,6 +724,7 @@ export function createPatchFunction (backend) {
       isInitialPatch = true
       createElm(vnode, insertedVnodeQueue)
     } else {
+      // 初始化渲染时，传入的 oldVnode 是 vm.$el，是真实的元素
       const isRealElement = isDef(oldVnode.nodeType)
       if (!isRealElement && sameVnode(oldVnode, vnode)) {
         // patch existing root node
@@ -741,7 +753,7 @@ export function createPatchFunction (backend) {
             }
           }
           // either not server-rendered, or hydration failed.
-          // create an empty node and replace it
+          // 当 oldVnode 是真实元素时，创建一个空 vnode
           oldVnode = emptyNodeAt(oldVnode)
         }
 
@@ -790,7 +802,7 @@ export function createPatchFunction (backend) {
           }
         }
 
-        // destroy old node
+        // 删除旧的 vnode
         if (isDef(parentElm)) {
           removeVnodes([oldVnode], 0, 0)
         } else if (isDef(oldVnode.tag)) {
