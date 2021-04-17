@@ -34,9 +34,7 @@ if (process.env.NODE_ENV !== 'production') {
     )
   }
 
-  const hasProxy =
-    typeof Proxy !== 'undefined' && isNative(Proxy)
-
+  const hasProxy = typeof Proxy !== 'undefined' && isNative(Proxy)
   if (hasProxy) {
     const isBuiltInModifier = makeMap('stop,prevent,self,ctrl,shift,alt,meta,exact')
     config.keyCodes = new Proxy(config.keyCodes, {
@@ -57,7 +55,9 @@ if (process.env.NODE_ENV !== 'production') {
       const has = key in target
       const isAllowed = allowedGlobals(key) ||
         (typeof key === 'string' && key.charAt(0) === '_' && !(key in target.$data))
+      // 如果 template 中的变量，在实例中和默认全局属性中没找到，就提醒变量没定义
       if (!has && !isAllowed) {
+        // 避免带 $、_ 为前缀的属性被代理，因为内部私有方法有可能和它冲突
         if (key in target.$data) warnReservedPrefix(target, key)
         else warnNonPresent(target, key)
       }

@@ -58,12 +58,12 @@ export function initLifecycle (vm: Component) {
 export function lifecycleMixin (Vue: Class<Component>) {
   Vue.prototype._update = function (vnode: VNode, hydrating?: boolean) {
     const vm: Component = this
+    // 保存一些变量用于后面做比较
     const prevEl = vm.$el
     const prevVnode = vm._vnode
     const restoreActiveInstance = setActiveInstance(vm)
     vm._vnode = vnode
-    // Vue.prototype.__patch__ is injected in entry points
-    // based on the rendering backend used.
+    // __patch__ 定义在文件 src/platforms/web/runtime/index.js
     if (!prevVnode) {
       // initial render
       vm.$el = vm.__patch__(vm.$el, vnode, hydrating, false /* removeOnly */)
@@ -144,10 +144,12 @@ export function mountComponent (
   hydrating?: boolean
 ): Component {
   vm.$el = el
+  // 如果没有获取到 render 函数，就将 createEmptyVNode 赋给 render 用于创建空 vnode
   if (!vm.$options.render) {
     vm.$options.render = createEmptyVNode
     if (process.env.NODE_ENV !== 'production') {
-      /* istanbul ignore if */
+      // 如果有 template、el，还没有 render 就进到了这里，就提醒是 runtime-only 版本的 vue，
+      // 不会有模版编译，需要用户自己写 render
       if ((vm.$options.template && vm.$options.template.charAt(0) !== '#') ||
         vm.$options.el || el) {
         warn(
@@ -166,6 +168,7 @@ export function mountComponent (
   }
   callHook(vm, 'beforeMount')
 
+  // 创建 updateComponent 方法用于获取 vnode，然后 update 组件
   let updateComponent
   /* istanbul ignore if */
   if (process.env.NODE_ENV !== 'production' && config.performance && mark) {

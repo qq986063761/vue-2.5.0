@@ -71,6 +71,8 @@ export function createPatchFunction (backend) {
   let i, j
   const cbs = {}
 
+  // nodeOps 是 dom 元素相关封装方法，在文件 src/platforms/web/runtime/node-ops.js
+  // modules 是 ref directives attrs class events domProps style transition 相关 hook
   const { modules, nodeOps } = backend
 
   for (i = 0; i < hooks.length; ++i) {

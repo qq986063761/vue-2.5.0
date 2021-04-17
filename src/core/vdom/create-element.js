@@ -23,8 +23,7 @@ import {
 const SIMPLE_NORMALIZE = 1
 const ALWAYS_NORMALIZE = 2
 
-// wrapper function for providing a more flexible interface
-// without getting yelled at by flow
+// 提供一个更灵活的创建 vnode 的方式
 export function createElement (
   context: Component,
   tag: any,
@@ -33,6 +32,8 @@ export function createElement (
   normalizationType: any,
   alwaysNormalize: boolean
 ): VNode | Array<VNode> {
+  // 如果 data 参数是数组或者 data 是原生属性（string、number等），说明没有 data，实际上是 children
+  // 则这里进行参数重载（这里实际上参数每个会往前移一位）
   if (Array.isArray(data) || isPrimitive(data)) {
     normalizationType = children
     children = data
@@ -51,6 +52,7 @@ export function _createElement (
   children?: any,
   normalizationType?: number
 ): VNode | Array<VNode> {
+  // 如果 data 存在 __ob__ 属性，则说明是响应式属性，这里 vnode 的 data 不能是响应式属性
   if (isDef(data) && isDef((data: any).__ob__)) {
     process.env.NODE_ENV !== 'production' && warn(
       `Avoid using observed data object as vnode data: ${JSON.stringify(data)}\n` +
@@ -59,7 +61,7 @@ export function _createElement (
     )
     return createEmptyVNode()
   }
-  // object syntax in v-bind
+  // component 组件这种类型会存在 is 属性，这种情况 tag 就是 is 的值
   if (isDef(data) && isDef(data.is)) {
     tag = data.is
   }
@@ -67,7 +69,7 @@ export function _createElement (
     // in case of component :is set to falsy value
     return createEmptyVNode()
   }
-  // warn against non-primitive key
+  // 如果 data.key 这个属性，不是原生类型，则提醒
   if (process.env.NODE_ENV !== 'production' &&
     isDef(data) && isDef(data.key) && !isPrimitive(data.key)
   ) {
@@ -87,6 +89,7 @@ export function _createElement (
     data.scopedSlots = { default: children[0] }
     children.length = 0
   }
+  // 对 children 数据进行不同程度的扁平化处理
   if (normalizationType === ALWAYS_NORMALIZE) {
     children = normalizeChildren(children)
   } else if (normalizationType === SIMPLE_NORMALIZE) {
@@ -96,8 +99,9 @@ export function _createElement (
   if (typeof tag === 'string') {
     let Ctor
     ns = (context.$vnode && context.$vnode.ns) || config.getTagNamespace(tag)
+    // 如果 tag 是系统保留标签名
     if (config.isReservedTag(tag)) {
-      // platform built-in elements
+      // 在原生 tag 上用到了 .native 属性时提醒，这个修饰符只能用在组件上
       if (process.env.NODE_ENV !== 'production' && isDef(data) && isDef(data.nativeOn) && data.tag !== 'component') {
         warn(
           `The .native modifier for v-on is only valid on components but it was used on <${tag}>.`,
@@ -121,7 +125,7 @@ export function _createElement (
       )
     }
   } else {
-    // direct component options / constructor
+    // 如果 tag 是一个组件配置（ options 或者组件构造器）
     vnode = createComponent(tag, data, context, children)
   }
   if (Array.isArray(vnode)) {

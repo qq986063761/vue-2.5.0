@@ -38,6 +38,7 @@ Vue.prototype.$mount = function (
   el?: string | Element,
   hydrating?: boolean
 ): Component {
+  // runtime only 版本的 vue 是直接进的这个入口，所以这里再获取一次 el
   el = el && inBrowser ? query(el) : undefined
   return mountComponent(this, el, hydrating)
 }

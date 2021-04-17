@@ -35,6 +35,7 @@ const sharedPropertyDefinition = {
   set: noop
 }
 
+// 将 this[sourceKey] 上的 key 属性，挂到 this 上方便访问
 export function proxy (target: Object, sourceKey: string, key: string) {
   sharedPropertyDefinition.get = function proxyGetter () {
     return this[sourceKey][key]
@@ -116,6 +117,7 @@ function initData (vm: Component) {
   data = vm._data = typeof data === 'function'
     ? getData(data, vm)
     : data || {}
+  // 如果 data 不是对象，就提醒用户
   if (!isPlainObject(data)) {
     data = {}
     process.env.NODE_ENV !== 'production' && warn(
@@ -124,13 +126,14 @@ function initData (vm: Component) {
       vm
     )
   }
-  // proxy data on instance
+  // 将 data 属性都挂到实例上，方便直接访问
   const keys = Object.keys(data)
   const props = vm.$options.props
   const methods = vm.$options.methods
   let i = keys.length
   while (i--) {
     const key = keys[i]
+    // 如果 methods 中也有 data 中相同属性，就提醒
     if (process.env.NODE_ENV !== 'production') {
       if (methods && hasOwn(methods, key)) {
         warn(
@@ -139,12 +142,14 @@ function initData (vm: Component) {
         )
       }
     }
+    // 如果 props 中也有 data 中相同属性，就提醒
     if (props && hasOwn(props, key)) {
       process.env.NODE_ENV !== 'production' && warn(
         `The data property "${key}" is already declared as a prop. ` +
         `Use prop default value instead.`,
         vm
       )
+    // 如果 data 中的 key 不是保留字段，就挂到实例上方便访问
     } else if (!isReserved(key)) {
       proxy(vm, `_data`, key)
     }

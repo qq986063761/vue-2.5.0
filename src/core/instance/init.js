@@ -41,7 +41,7 @@ export function initMixin (Vue: Class<Component>) {
         vm
       )
     }
-    /* istanbul ignore else */
+    // 获取 _renderProxy，开发阶段会用 Proxy 包装用于检查一些问题
     if (process.env.NODE_ENV !== 'production') {
       initProxy(vm)
     } else {
@@ -51,7 +51,7 @@ export function initMixin (Vue: Class<Component>) {
     vm._self = vm
     initLifecycle(vm)
     initEvents(vm)
-    initRender(vm)
+    initRender(vm) // 初始化 vm._vnode、vm.$createElement 等和渲染相关属性
     callHook(vm, 'beforeCreate')
     initInjections(vm) // resolve injections before data/props
     initState(vm) // 初始化 props、data、computed 等配置属性

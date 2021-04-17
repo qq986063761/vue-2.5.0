@@ -19,9 +19,10 @@ Vue.prototype.$mount = function (
   el?: string | Element,
   hydrating?: boolean
 ): Component {
+  // 获取挂载元素
   el = el && query(el)
 
-  /* istanbul ignore if */
+  // 不能挂到 body 或者 html 上，因为这两类元素不能被替换
   if (el === document.body || el === document.documentElement) {
     process.env.NODE_ENV !== 'production' && warn(
       `Do not mount Vue to <html> or <body> - mount to normal elements instead.`
@@ -30,14 +31,15 @@ Vue.prototype.$mount = function (
   }
 
   const options = this.$options
-  // resolve template/el and convert to render function
+  // 用户没有自己配置 render 函数，就会通过 template 或者 el 解析出 render 函数
   if (!options.render) {
     let template = options.template
     if (template) {
       if (typeof template === 'string') {
+        // 如果 template 配置的 id 选择器，就通过 id 获取模版
         if (template.charAt(0) === '#') {
           template = idToTemplate(template)
-          /* istanbul ignore if */
+          // 没有获取到 template 就提醒
           if (process.env.NODE_ENV !== 'production' && !template) {
             warn(
               `Template element not found or is empty: ${options.template}`,
@@ -45,14 +47,17 @@ Vue.prototype.$mount = function (
             )
           }
         }
+      // 如果 template 是一个元素对象，则直接拿 innerHTML 作为模版
       } else if (template.nodeType) {
         template = template.innerHTML
       } else {
+        // 其他无效的 template 配置就提醒
         if (process.env.NODE_ENV !== 'production') {
           warn('invalid template option:' + template, this)
         }
         return this
       }
+    // 如果 el 本身是一个元素，就获取 outerHTML 作为 template
     } else if (el) {
       template = getOuterHTML(el)
     }

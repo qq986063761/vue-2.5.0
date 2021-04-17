@@ -18,11 +18,7 @@ import type { SimpleSet } from '../util/index'
 
 let uid = 0
 
-/**
- * A watcher parses an expression, collects dependencies,
- * and fires callback when the expression value changes.
- * This is used for both the $watch() api and directives.
- */
+// 一个监听类，收集依赖项，监听内容发生变化就会触发回调，也用于 $watch、指令 等
 export default class Watcher {
   vm: Component;
   expression: string;
@@ -50,6 +46,7 @@ export default class Watcher {
     isRenderWatcher?: boolean
   ) {
     this.vm = vm
+    // 如果是用于更新视图渲染的 watcher，就和实例 _watcher 关联，并添加到实例 _watchers 数组中
     if (isRenderWatcher) {
       vm._watcher = this
     }
@@ -75,11 +72,13 @@ export default class Watcher {
     this.expression = process.env.NODE_ENV !== 'production'
       ? expOrFn.toString()
       : ''
-    // parse expression for getter
+    // 解析传入的更新函数赋给 getter
     if (typeof expOrFn === 'function') {
       this.getter = expOrFn
     } else {
+      // 有可能传入的不是函数，而是字符串，比如 'obj.getName' 这种，就再解析一次获取到更新函数
       this.getter = parsePath(expOrFn)
+      // 如果没获取到 getter 函数，就提醒
       if (!this.getter) {
         this.getter = noop
         process.env.NODE_ENV !== 'production' && warn(
@@ -90,6 +89,8 @@ export default class Watcher {
         )
       }
     }
+
+    // 初始化 watcher 后再初始化获取一次 value
     this.value = this.lazy
       ? undefined
       : this.get()

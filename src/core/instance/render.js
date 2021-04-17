@@ -68,6 +68,7 @@ export function renderMixin (Vue: Class<Component>) {
 
   Vue.prototype._render = function (): VNode {
     const vm: Component = this
+    // 从 options 中拿到 render 函数
     const { render, _parentVnode } = vm.$options
 
     if (_parentVnode) {
@@ -87,13 +88,12 @@ export function renderMixin (Vue: Class<Component>) {
       // There's no need to maintain a stack because all render fns are called
       // separately from one another. Nested component's render fns are called
       // when parent component is patched.
-      currentRenderingInstance = vm
+      currentRenderingInstance = vm // 记录一下当前在渲染中的实例
+      // 这里 vm._renderProxy 就是 vm 自己，开发模式可能是一个 proxy 对象
       vnode = render.call(vm._renderProxy, vm.$createElement)
     } catch (e) {
       handleError(e, vm, `render`)
-      // return error render result,
-      // or previous vnode to prevent render error causing blank component
-      /* istanbul ignore else */
+      // 获取错误提醒的 vnode，或之前的 vnode，避免空白节点的情况
       if (process.env.NODE_ENV !== 'production' && vm.$options.renderError) {
         try {
           vnode = vm.$options.renderError.call(vm._renderProxy, vm.$createElement, e)
@@ -111,8 +111,9 @@ export function renderMixin (Vue: Class<Component>) {
     if (Array.isArray(vnode) && vnode.length === 1) {
       vnode = vnode[0]
     }
-    // return empty vnode in case the render function errored out
+    // 如果 vnode 不是 VNode 实例，就获取空 vnode
     if (!(vnode instanceof VNode)) {
+      // 如果 vnode 是一个数组，说明 template 根元素有多个元素就提醒
       if (process.env.NODE_ENV !== 'production' && Array.isArray(vnode)) {
         warn(
           'Multiple root nodes returned from render function. Render function ' +
