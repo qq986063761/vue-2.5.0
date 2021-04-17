@@ -769,7 +769,7 @@ export function createPatchFunction (backend) {
           // leaving transition. Only happens when combining transition +
           // keep-alive + HOCs. (#4590)
           oldElm._leaveCb ? null : parentElm,
-          nodeOps.nextSibling(oldElm)
+          nodeOps.nextSibling(oldElm) // 这里传入的参考节点是 oldElm 的下一个兄弟节点
         )
 
         // update parent placeholder node element, recursively
