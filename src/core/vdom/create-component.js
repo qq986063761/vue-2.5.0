@@ -108,7 +108,7 @@ export function createComponent (
   if (isUndef(Ctor)) {
     return
   }
-
+  // 这里 baseCtor 是 Vue 构造器
   const baseCtor = context.$options._base
 
   // plain options object: turn it into a constructor

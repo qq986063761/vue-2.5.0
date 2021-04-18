@@ -445,19 +445,23 @@ export function resolveAsset (
   id: string,
   warnMissing?: boolean
 ): any {
-  /* istanbul ignore if */
+  // 签名不是字符串，也不用往后走了
   if (typeof id !== 'string') {
     return
   }
-  const assets = options[type]
-  // check local registration variations first
+  // 获取 options 中对应类型属性值（比如 type 是 components 时，就是获取的 options.components）
+  const assets = options[type] 
+  // 检查当前 assets 中是否有对应 id 属性，比如 assets 是组件资源时，判断 assets 中是否存在有 id 为组件名的组件配置对象
   if (hasOwn(assets, id)) return assets[id]
+  // 如果以 id 为名的对象不存在，就将 id 驼峰改短横线后再匹配是否存在
   const camelizedId = camelize(id)
   if (hasOwn(assets, camelizedId)) return assets[camelizedId]
+  // 如果短横线对应资源不存在，就将 id 改首字母大写再匹配是否存在
   const PascalCaseId = capitalize(camelizedId)
   if (hasOwn(assets, PascalCaseId)) return assets[PascalCaseId]
   // fallback to prototype chain
   const res = assets[id] || assets[camelizedId] || assets[PascalCaseId]
+  // 如果最终没有找到对应资源对象，就提醒
   if (process.env.NODE_ENV !== 'production' && warnMissing && !res) {
     warn(
       'Failed to resolve ' + type.slice(0, -1) + ': ' + id,
