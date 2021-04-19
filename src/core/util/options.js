@@ -277,12 +277,14 @@ function checkComponents (options: Object) {
 }
 
 export function validateComponentName (name: string) {
+  // 如果组件 name 不符合组件命名规范，则提醒
   if (!new RegExp(`^[a-zA-Z][\\-\\.0-9_${unicodeRegExp.source}]*$`).test(name)) {
     warn(
       'Invalid component name: "' + name + '". Component names ' +
       'should conform to valid custom element name in html5 specification.'
     )
   }
+  // 如果组件 name 是原生内置标签，或者是保留字段，就提醒
   if (isBuiltInTag(name) || config.isReservedTag(name)) {
     warn(
       'Do not use built-in or reserved HTML elements as component ' +

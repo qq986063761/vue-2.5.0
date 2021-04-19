@@ -20,16 +20,17 @@ export function initExtend (Vue: GlobalAPI) {
     extendOptions = extendOptions || {}
     const Super = this
     const SuperId = Super.cid
+    // 用于缓存当前组件构造器，方便下次进来判断是同一个父组件 id 下的构造器就直接返回
     const cachedCtors = extendOptions._Ctor || (extendOptions._Ctor = {})
     if (cachedCtors[SuperId]) {
       return cachedCtors[SuperId]
     }
-
+    // 定义组件 name
     const name = extendOptions.name || Super.options.name
     if (process.env.NODE_ENV !== 'production' && name) {
       validateComponentName(name)
     }
-
+    // 定义组件构造函数
     const Sub = function VueComponent (options) {
       this._init(options)
     }
@@ -57,8 +58,7 @@ export function initExtend (Vue: GlobalAPI) {
     Sub.mixin = Super.mixin
     Sub.use = Super.use
 
-    // create asset registers, so extended classes
-    // can have their private assets too.
+    // 这里也创建了组件类的 component、directive、filter 资源对象
     ASSET_TYPES.forEach(function (type) {
       Sub[type] = Super[type]
     })

@@ -220,7 +220,10 @@ export function createPatchFunction (backend) {
   function createComponent (vnode, insertedVnodeQueue, parentElm, refElm) {
     let i = vnode.data
     if (isDef(i)) {
+      // 是否是 keep-alive 组件被激活
       const isReactivated = isDef(vnode.componentInstance) && i.keepAlive
+      // 这里的 i.hook 其实就是组件 vnode 的钩子函数集合（init prepatch insert destroy）
+      // 然后这里把 init hook 赋给了 i 然后调用一次 init hook
       if (isDef(i = i.hook) && isDef(i = i.init)) {
         i(vnode, false /* hydrating */)
       }

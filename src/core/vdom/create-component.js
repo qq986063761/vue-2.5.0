@@ -35,6 +35,7 @@ import {
 // inline hooks to be invoked on component VNodes during patch
 const componentVNodeHooks = {
   init (vnode: VNodeWithData, hydrating: boolean): ?boolean {
+    // 如果是 keep-alive 组件
     if (
       vnode.componentInstance &&
       !vnode.componentInstance._isDestroyed &&
@@ -94,14 +95,14 @@ const componentVNodeHooks = {
       }
     }
   }
-}
+} 
 
 const hooksToMerge = Object.keys(componentVNodeHooks)
 
 export function createComponent (
   Ctor: Class<Component> | Function | Object | void,
   data: ?VNodeData,
-  context: Component,
+  context: Component, // 上下文对象，这里是父组件实例
   children: ?Array<VNode>,
   tag?: string
 ): VNode | Array<VNode> | void {
@@ -111,13 +112,12 @@ export function createComponent (
   // 这里 baseCtor 是 Vue 构造器
   const baseCtor = context.$options._base
 
-  // plain options object: turn it into a constructor
+  // 将传入的组件配置对象，转换成组件构造函数
   if (isObject(Ctor)) {
     Ctor = baseCtor.extend(Ctor)
   }
 
-  // if at this stage it's not a constructor or an async component factory,
-  // reject.
+  // 如果组件构造器不是函数，则提醒
   if (typeof Ctor !== 'function') {
     if (process.env.NODE_ENV !== 'production') {
       warn(`Invalid Component definition: ${String(Ctor)}`, context)
@@ -182,10 +182,10 @@ export function createComponent (
     }
   }
 
-  // install component management hooks onto the placeholder node
+  // 安装组件 hook
   installComponentHooks(data)
 
-  // return a placeholder vnode
+  // 生成组件 vnode
   const name = Ctor.options.name || tag
   const vnode = new VNode(
     `vue-component-${Ctor.cid}${name ? `-${name}` : ''}`,
@@ -227,10 +227,12 @@ export function createComponentInstanceForVnode (
 
 function installComponentHooks (data: VNodeData) {
   const hooks = data.hook || (data.hook = {})
+  // 这里 hooksToMerge 就是 componentVNodeHooks 对象中的 keys（init prepatch insert destroy）
   for (let i = 0; i < hooksToMerge.length; i++) {
     const key = hooksToMerge[i]
     const existing = hooks[key]
-    const toMerge = componentVNodeHooks[key]
+    const toMerge = componentVNodeHooks[key] // 取道对应 key 的值（是钩子函数）
+    // 如果取到的钩子函数，没有被缓存，也没有被合并过，就缓存在 data.hook 中
     if (existing !== toMerge && !(existing && existing._merged)) {
       hooks[key] = existing ? mergeHook(toMerge, existing) : toMerge
     }
@@ -238,6 +240,7 @@ function installComponentHooks (data: VNodeData) {
 }
 
 function mergeHook (f1: any, f2: any): Function {
+  // 这里就是把传入的两个函数，合并成一个函数
   const merged = (a, b) => {
     // flow complains about extra args which is why we use any
     f1(a, b)
