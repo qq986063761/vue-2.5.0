@@ -32,9 +32,11 @@ export function setActiveInstance(vm: Component) {
 export function initLifecycle (vm: Component) {
   const options = vm.$options
 
-  // locate first non-abstract parent
+  // 将当前组件实例追加到父组件实例的 $chlidren 中
   let parent = options.parent
+  // 这里 options.abstract 指的是抽象实例，比如 keep-alive 这种没有实际元素的组件
   if (parent && !options.abstract) {
+    // 如果父实例是抽象的，那就继续往上找父组件
     while (parent.$options.abstract && parent.$parent) {
       parent = parent.$parent
     }

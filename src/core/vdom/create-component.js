@@ -45,10 +45,12 @@ const componentVNodeHooks = {
       const mountedNode: any = vnode // work around flow
       componentVNodeHooks.prepatch(mountedNode, mountedNode)
     } else {
+      // 获取组件实例
       const child = vnode.componentInstance = createComponentInstanceForVnode(
-        vnode,
-        activeInstance
+        vnode, // 这是当前初始化的组件 vnode
+        activeInstance // 这个实例是父组件，是上面 vnode 对应组件的父组件，每次在 this._update 时会赋值 
       )
+      // 获取完实例后，开始挂载组件元素
       child.$mount(hydrating ? vnode.elm : undefined, hydrating)
     }
   },
@@ -190,7 +192,7 @@ export function createComponent (
   const vnode = new VNode(
     `vue-component-${Ctor.cid}${name ? `-${name}` : ''}`,
     data, undefined, undefined, undefined, context,
-    { Ctor, propsData, listeners, tag, children },
+    { Ctor, propsData, listeners, tag, children }, // 这个对象就是 vnode 的 componentOptions
     asyncFactory
   )
 
@@ -222,6 +224,7 @@ export function createComponentInstanceForVnode (
     options.render = inlineTemplate.render
     options.staticRenderFns = inlineTemplate.staticRenderFns
   }
+  // 创建组件实例，这里 new 组件也会进入 new Vue 入口
   return new vnode.componentOptions.Ctor(options)
 }
 

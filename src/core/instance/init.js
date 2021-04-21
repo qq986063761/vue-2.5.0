@@ -28,11 +28,9 @@ export function initMixin (Vue: Class<Component>) {
 
     // 避免重复被监听的标记
     vm._isVue = true
-    // merge options
+
+    // 如果当前初始化的是组件，就初始化组件
     if (options && options._isComponent) {
-      // optimize internal component instantiation
-      // since dynamic options merging is pretty slow, and none of the
-      // internal component options needs special treatment.
       initInternalComponent(vm, options)
     } else {
       vm.$options = mergeOptions(
@@ -49,7 +47,7 @@ export function initMixin (Vue: Class<Component>) {
     }
     // expose real self
     vm._self = vm
-    initLifecycle(vm)
+    initLifecycle(vm) // 追加一些生命周期相关的实例属性
     initEvents(vm)
     initRender(vm) // 初始化 vm._vnode、vm.$createElement 等和渲染相关属性
     callHook(vm, 'beforeCreate')
@@ -71,6 +69,7 @@ export function initMixin (Vue: Class<Component>) {
   }
 }
 
+// 初始化组件的 options
 export function initInternalComponent (vm: Component, options: InternalComponentOptions) {
   const opts = vm.$options = Object.create(vm.constructor.options)
   // doing this because it's faster than dynamic enumeration.
