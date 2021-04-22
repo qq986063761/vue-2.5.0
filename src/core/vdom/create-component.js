@@ -45,7 +45,7 @@ const componentVNodeHooks = {
       const mountedNode: any = vnode // work around flow
       componentVNodeHooks.prepatch(mountedNode, mountedNode)
     } else {
-      // 获取组件实例
+      // 获取组件实例，同时存到 vnode.componentInstance 中
       const child = vnode.componentInstance = createComponentInstanceForVnode(
         vnode, // 这是当前初始化的组件 vnode
         activeInstance // 这个实例是父组件，是上面 vnode 对应组件的父组件，每次在 this._update 时会赋值 

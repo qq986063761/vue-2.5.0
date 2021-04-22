@@ -232,7 +232,9 @@ export function createPatchFunction (backend) {
       // component also has set the placeholder vnode's elm.
       // in that case we can just return the element and be done.
       if (isDef(vnode.componentInstance)) {
+        // 初始化组件 vnode 的信息，比如获取 vnode.elm
         initComponent(vnode, insertedVnodeQueue)
+        // 再调用 insert 插入元素，这时候 vnode.elm 已经生成
         insert(parentElm, vnode.elm, refElm)
         if (isTrue(isReactivated)) {
           reactivateComponent(vnode, insertedVnodeQueue, parentElm, refElm)
@@ -247,6 +249,7 @@ export function createPatchFunction (backend) {
       insertedVnodeQueue.push.apply(insertedVnodeQueue, vnode.data.pendingInsert)
       vnode.data.pendingInsert = null
     }
+    // 这里在组件初始化 hook 调用之后，获取到 vnode.elm
     vnode.elm = vnode.componentInstance.$el
     if (isPatchable(vnode)) {
       invokeCreateHooks(vnode, insertedVnodeQueue)
@@ -283,6 +286,7 @@ export function createPatchFunction (backend) {
   }
 
   function insert (parent, elm, ref) {
+    // parent 在初始化创建组件时是空，就不会插入元素到父节点，要等到下面的 createComponent 中 i.init 初始化组件后再插入
     if (isDef(parent)) {
       // 如果有参考节点，且参考节点的父节点和当前插入的父节点是同一个节点，则将当前 vnode 对应元素插入到参考元素之前
       if (isDef(ref)) {
@@ -721,7 +725,8 @@ export function createPatchFunction (backend) {
 
     let isInitialPatch = false
     const insertedVnodeQueue = []
-
+    
+    // oldVnode 在初始化 patch 组件时，是没有的，会进入这里的逻辑
     if (isUndef(oldVnode)) {
       // empty mount (likely as component), create new root element
       isInitialPatch = true

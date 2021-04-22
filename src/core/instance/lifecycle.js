@@ -63,11 +63,12 @@ export function lifecycleMixin (Vue: Class<Component>) {
     // 保存一些变量用于后面做比较
     const prevEl = vm.$el
     const prevVnode = vm._vnode
+     // 这里设置全局 activeInstance 记录当前实例，也是方便后续更新子组件的时候到子组件的父实例
     const restoreActiveInstance = setActiveInstance(vm)
     vm._vnode = vnode
     // __patch__ 定义在文件 src/platforms/web/runtime/index.js
     if (!prevVnode) {
-      // initial render
+      // 初始化一用 vnode 渲染元素，这时候 vm.$el 作为参数传入的时候还不存在
       vm.$el = vm.__patch__(vm.$el, vnode, hydrating, false /* removeOnly */)
     } else {
       // updates
