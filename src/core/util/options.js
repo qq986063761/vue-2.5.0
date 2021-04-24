@@ -140,9 +140,7 @@ strats.data = function (
   return mergeDataOrFn(parentVal, childVal, vm)
 }
 
-/**
- * Hooks and props are merged as arrays.
- */
+// 将父子配置合并最终生成一个函数数组，用于 hook 触发的时候依次调用
 function mergeHook (
   parentVal: ?Array<Function>,
   childVal: ?Function | ?Array<Function>
@@ -388,8 +386,8 @@ function assertObjectType (name: string, value: any, vm: ?Component) {
  * Core utility used in both instantiation and inheritance.
  */
 export function mergeOptions (
-  parent: Object,
-  child: Object,
+  parent: Object, // 构造器默认 options
+  child: Object, // 我们传入的 options
   vm?: Component
 ): Object {
   if (process.env.NODE_ENV !== 'production') {
@@ -400,6 +398,7 @@ export function mergeOptions (
     child = child.options
   }
 
+  // 检查 props、inject、directve 合法性
   normalizeProps(child, vm)
   normalizeInject(child, vm)
   normalizeDirectives(child)
@@ -409,9 +408,11 @@ export function mergeOptions (
   // the result of another mergeOptions call.
   // Only merged options has the _base property.
   if (!child._base) {
+    // 如果有继承属性，则合并继承属性
     if (child.extends) {
       parent = mergeOptions(parent, child.extends, vm)
     }
+    // 如果有混合属性，则合并混合属性
     if (child.mixins) {
       for (let i = 0, l = child.mixins.length; i < l; i++) {
         parent = mergeOptions(parent, child.mixins[i], vm)
@@ -419,6 +420,8 @@ export function mergeOptions (
     }
   }
 
+  // 利用 mergeField 获取每种类型属性的合并策略函数
+  // 然后在 mergeField 中通过调用 strat 函数获取最终返回的值
   const options = {}
   let key
   for (key in parent) {

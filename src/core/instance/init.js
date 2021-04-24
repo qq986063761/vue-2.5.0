@@ -33,6 +33,7 @@ export function initMixin (Vue: Class<Component>) {
     if (options && options._isComponent) {
       initInternalComponent(vm, options)
     } else {
+      // 将我们传入的 options 和构造器默认 options 合并后获取当前实例的 options
       vm.$options = mergeOptions(
         resolveConstructorOptions(vm.constructor),
         options || {},
@@ -91,6 +92,7 @@ export function initInternalComponent (vm: Component, options: InternalComponent
 
 export function resolveConstructorOptions (Ctor: Class<Component>) {
   let options = Ctor.options
+  // 当 Ctor 是 Vue 时，是根构造器，就不会进入到下面逻辑了
   if (Ctor.super) {
     const superOptions = resolveConstructorOptions(Ctor.super)
     const cachedSuperOptions = Ctor.superOptions

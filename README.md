@@ -18,6 +18,9 @@
 # new Vue 流程
 - new Vue() -> init -> $mount -> compile（编译 template 生成 render） -> render（创建 vnode） -> patch（生成 dom 并挂载到文档中）
 
+# 组件 vnode 创建流程
+- 父元素 patch -> createElm -> createChildren -> 进入子组件 createElm -> createComponent -> 
+
 # 响应式原理
 - 在初始化 Vue 属性时，initState 方法中开始定义响应式，initState 在文件：src\core\instance\state.js 中
 - 在 Observer 中对数据进行监听，利用 dep 与 watcher 建立联系，数据更新后通知 watcher 更新 watcher 对应的组件和视图

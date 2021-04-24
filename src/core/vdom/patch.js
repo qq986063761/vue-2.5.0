@@ -145,6 +145,7 @@ export function createPatchFunction (backend) {
 
     vnode.isRootInsert = !nested // for transition enter check
     // 这里会创建一个组件，如果 vnode 是组件节点，这里就结束了不会继续往后面走
+    // 组件节点只的是组件还未渲染之前的占位 vnode，组件的渲染 vnode 生成之后就不会进入这里了
     if (createComponent(vnode, insertedVnodeQueue, parentElm, refElm)) {
       return
     }
@@ -761,7 +762,7 @@ export function createPatchFunction (backend) {
             }
           }
           // either not server-rendered, or hydration failed.
-          // 当 oldVnode 是真实元素时，创建一个空 vnode
+          // 当 oldVnode 是真实元素时，利用元素创建一个空 vnode
           oldVnode = emptyNodeAt(oldVnode)
         }
 

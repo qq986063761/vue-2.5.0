@@ -215,8 +215,8 @@ export function createComponentInstanceForVnode (
 ): Component {
   const options: InternalComponentOptions = {
     _isComponent: true,
-    _parentVnode: vnode,
-    parent
+    _parentVnode: vnode, // 这里的 vnode 其实是组件还未渲染前自己的 vnode，这里作为占位符，没渲染出来之前用于占位
+    parent // 这个是父 vnode
   }
   // check inline-template render functions
   const inlineTemplate = vnode.data.inlineTemplate
