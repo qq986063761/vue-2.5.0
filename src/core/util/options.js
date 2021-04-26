@@ -140,7 +140,8 @@ strats.data = function (
   return mergeDataOrFn(parentVal, childVal, vm)
 }
 
-// 将父子配置合并最终生成一个函数数组，用于 hook 触发的时候依次调用
+// 将父子配置合并最终生成一个函数数组，用于 hook 触发的时候依次调用，
+// 比如父子配置都包含了 created 时就会合并成 [ parentCreated, childCreated ]
 function mergeHook (
   parentVal: ?Array<Function>,
   childVal: ?Function | ?Array<Function>

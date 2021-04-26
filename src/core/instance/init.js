@@ -29,7 +29,7 @@ export function initMixin (Vue: Class<Component>) {
     // 避免重复被监听的标记
     vm._isVue = true
 
-    // 如果当前初始化的是组件，就初始化组件
+    // 如果当前初始化的是组件，就初始化组件相关 options
     if (options && options._isComponent) {
       initInternalComponent(vm, options)
     } else {

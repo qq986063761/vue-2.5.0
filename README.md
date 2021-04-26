@@ -19,7 +19,12 @@
 - new Vue() -> init -> $mount -> compile（编译 template 生成 render） -> render（创建 vnode） -> patch（生成 dom 并挂载到文档中）
 
 # 组件 vnode 创建流程
-- 父元素 patch -> createElm -> createChildren -> 进入子组件 createElm -> createComponent -> 
+- 父 patch -> 父 createElm -> 父 createChildren -> 子 createElm -> 子 createComponent（其中调用的 i.init hook 是在 App render 时会触发所有的子 $createElement 流程中注册的） -> 子 insert 到父元素 -> 父 insert 到根
+
+# 合并配置的几个场景
+- Vue.mixin 注入混合时会调用 mergeOptions 合并
+- new Vue 入口 _init 中初始化 vm.$options 时会合并 options
+- Vue.extend 中继承 Sub.options 时会调用 mergeOptions 合并继承 options
 
 # 响应式原理
 - 在初始化 Vue 属性时，initState 方法中开始定义响应式，initState 在文件：src\core\instance\state.js 中
