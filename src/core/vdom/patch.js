@@ -198,6 +198,7 @@ export function createPatchFunction (backend) {
         // 先递归创建子节点对应 dom 元素，最终后面再统一挂到父元素下
         createChildren(vnode, children, insertedVnodeQueue)
         if (isDef(data)) {
+          // 调用 create hook
           invokeCreateHooks(vnode, insertedVnodeQueue)
         }
         // 将 vnode 对应元素添加到父元素下
