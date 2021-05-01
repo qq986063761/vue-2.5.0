@@ -4,9 +4,7 @@ import { ASSET_TYPES } from 'shared/constants'
 import { isPlainObject, validateComponentName } from '../util/index'
 
 export function initAssetRegisters (Vue: GlobalAPI) {
-  /**
-   * Create asset registration methods.
-   */
+  // 注册全局资源 component directive filter
   ASSET_TYPES.forEach(type => {
     Vue[type] = function (
       id: string,
@@ -15,10 +13,11 @@ export function initAssetRegisters (Vue: GlobalAPI) {
       if (!definition) {
         return this.options[type + 's'][id]
       } else {
-        /* istanbul ignore if */
+        // 检查组件名是否合法
         if (process.env.NODE_ENV !== 'production' && type === 'component') {
           validateComponentName(id)
         }
+        // 组件会继承一下生成组件构造器
         if (type === 'component' && isPlainObject(definition)) {
           definition.name = definition.name || id
           definition = this.options._base.extend(definition)

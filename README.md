@@ -29,9 +29,12 @@
 # 生命周期流程
 - beforeCreate：这时候还没有 initState 所以拿不到 data 数据
 - created：这时候已经 initState 完成，可以拿到 data 数据了
-- beforeMount：在 $mount 中 mountComponent 的时候会调用
-- mounted：mountComponent 结束时如果是组件根 vnode 则调用
-
+- beforeMount：在 $mount 中 mountComponent 的时候会调用（先父后子）
+- mounted：mountComponent 结束时如果是组件根 vnode 则调用，子组件的 mounted 是在组件 vnode 的 insert hook 中调用（先子后父）
+- beforeUpdate：mountComponent 中 new Watcher 中调用
+- updated：
+- beforeDestroy：调用 vm.$destroy 时调用
+- destroyed：调用 vm.$destroy 时调用
 
 # 响应式原理
 - 在初始化 Vue 属性时，initState 方法中开始定义响应式，initState 在文件：src\core\instance\state.js 中

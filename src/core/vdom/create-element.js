@@ -112,7 +112,7 @@ export function _createElement (
         config.parsePlatformTagName(tag), data, children,
         undefined, undefined, context
       )
-    // 如果是组件类型，则创建组件 vnode
+    // 如果是组件类型，则创建组件 vnode，这里获取到了组件构造器 Ctor
     } else if ((!data || !data.pre) && isDef(Ctor = resolveAsset(context.$options, 'components', tag))) {
       vnode = createComponent(Ctor, data, context, children, tag)
     } else {
