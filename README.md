@@ -37,12 +37,11 @@
 - destroyed：调用 vm.$destroy 时调用
 
 # 响应式原理
-- 在初始化 Vue 属性时，initState 方法中开始定义响应式，initState 在文件：src\core\instance\state.js 中
-- 在 Observer 中对数据进行监听，利用 dep 与 watcher 建立联系，数据更新后通知 watcher 更新 watcher 对应的组件和视图
-- Watcher 在 mount 时被创建，主要用于和组件 vnode 建立联系，用于被 dep 通知更新时，能更新指定 vnode 对应的组件视图
+- Observer：用于定义响应式属性
+- Dep：用于关联 Observer、响应式属性 与 Watcher 的关系，响应式属性的 set 中数据变化后会通知 Watcher 更新
+- Watcher：用于更新 vnode、视图、以及数据
 
-# nextTick 的实现逻辑
-- 源码位置：src/core/instance/render.js
+# nextTick 实现
 - 按兼容性确定使用什么方法调用下一个回调函数 setImmediate --> MessageChannel --> Promise --> setTimeout
 
 # 编译

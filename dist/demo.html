@@ -19,7 +19,12 @@
           props: {
             msg: String
           },
-          template: '<div>{{msg}}</div>'
+          data() {
+            return {
+              childTxt: 'childTxt'
+            }
+          },
+          template: '<div>{{ msg }} {{ childTxt }}</div>'
         }
       },
       data: {

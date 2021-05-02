@@ -117,21 +117,24 @@ export function resolveAsyncComponent (
     })
 
     const res = factory(resolve, reject)
+    // 这里 res 如果是对象的话说明不是单纯的 resolve 工厂函数，可能是 promise 对象，说明是配置的 () => import() 返回的组件
     if (isObject(res)) {
       if (isPromise(res)) {
-        // () => Promise
+        // promise 是没有配置 resolved 的，所以这里直接调用 then
         if (isUndef(factory.resolved)) {
           res.then(resolve, reject)
         }
+      // 如果是更高级配置异步组件，则进入到下面逻辑
       } else if (isPromise(res.component)) {
         res.component.then(resolve, reject)
-
+        // 出错时显示的组件
         if (isDef(res.error)) {
           factory.errorComp = ensureCtor(res.error, baseCtor)
         }
-
+        // 加载时显示的组件
         if (isDef(res.loading)) {
           factory.loadingComp = ensureCtor(res.loading, baseCtor)
+          // 延迟是 0 的话最后会直接返回 factory.loadingComp 组件的
           if (res.delay === 0) {
             factory.loading = true
           } else {
@@ -144,10 +147,11 @@ export function resolveAsyncComponent (
             }, res.delay || 200)
           }
         }
-
+        // 组件渲染的超时时间
         if (isDef(res.timeout)) {
           timerTimeout = setTimeout(() => {
             timerTimeout = null
+            // 如果到了超时时间后还没有 resolved 说明异步组件初始化失败了则加载错误组件
             if (isUndef(factory.resolved)) {
               reject(
                 process.env.NODE_ENV !== 'production'

@@ -134,9 +134,10 @@ export function createComponent (
     // 这里解析出来的异步函数是函数，Ctor 会是 undefined
     Ctor = resolveAsyncComponent(asyncFactory, baseCtor)
     if (Ctor === undefined) {
-      // 返回一个给异步函数占位置用的 vnode 数据，到这里异步组件的初始化准备工作完成
-      // 当下次触发更新 _update 的时候，就会再次进入到这个流程，上面的 resolveAsyncComponent 就能获取到异步组件的工厂函数了
-      // 就不会进这里了
+      // 返回一个给异步函数占位置用的 vnode 数据，其实就是一个注释节点，到这里异步组件的初始化准备工作完成
+      // 当下次触发更新 _update 的时候，就会再次进入到这个流程，上面的 resolveAsyncComponent 
+      // 就能获取到异步组件的工厂函数了，就不会进这里了
+      // 另外高级异步组件配置中的 loading 组件存在 delay 配置的时候因为有延迟，也不会直接进入到这里会直接渲染出来 loading 组件
       return createAsyncPlaceholder(
         asyncFactory,
         data,

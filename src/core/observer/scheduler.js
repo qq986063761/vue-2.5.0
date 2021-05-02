@@ -75,25 +75,25 @@ function flushSchedulerQueue () {
 
   // Sort queue before flush.
   // This ensures that:
-  // 1. Components are updated from parent to child. (because parent is always
-  //    created before the child)
+  // 1. 组件更新和创建都是从父到子，父的 id 小于子 id，所以这里排序 id 也要从小到大
   // 2. A component's user watchers are run before its render watcher (because
   //    user watchers are created before the render watcher)
   // 3. If a component is destroyed during a parent component's watcher run,
   //    its watchers can be skipped.
   queue.sort((a, b) => a.id - b.id)
 
-  // do not cache length because more watchers might be pushed
-  // as we run existing watchers
+  // 这里 queue 长度会变化
   for (index = 0; index < queue.length; index++) {
     watcher = queue[index]
+    // 调用 watcher 的 before 方法，比如 mountComponent 中 watcher 的 before 中会触发 beforeUpdate hook
     if (watcher.before) {
       watcher.before()
     }
     id = watcher.id
     has[id] = null
     watcher.run()
-    // in dev build, check and stop circular updates.
+    // 开发环境避免死循环，因为 watcher.run() 中可能又触发了 queueWatcher
+    // 比如在 watch 对象中监听的属性中又给自己赋值，则会触发无限循环触发 queueWatcher
     if (process.env.NODE_ENV !== 'production' && has[id] != null) {
       circular[id] = (circular[id] || 0) + 1
       if (circular[id] > MAX_UPDATE_COUNT) {
@@ -116,7 +116,7 @@ function flushSchedulerQueue () {
 
   resetSchedulerState()
 
-  // call component updated and activated hooks
+  // 调用组件 updated 和 activated hooks
   callActivatedHooks(activatedQueue)
   callUpdatedHooks(updatedQueue)
 
@@ -163,13 +163,14 @@ function callActivatedHooks (queue) {
  */
 export function queueWatcher (watcher: Watcher) {
   const id = watcher.id
+  // id 对应 值是空时才执行更新队列，避免同一个 tick 内触发了多次更新 watcher 没必要
   if (has[id] == null) {
     has[id] = true
+    // 如果还没有刷新就先把 watcher 加到队列中等待刷新
     if (!flushing) {
       queue.push(watcher)
     } else {
-      // if already flushing, splice the watcher based on its id
-      // if already past its id, it will be run next immediately.
+      // 如果已经刷新过一次，那就把之前刷新过的 watcher 从队列删掉，然后加上当前新增的 watcher 到队列中等待下次更新
       let i = queue.length - 1
       while (i > index && queue[i].id > watcher.id) {
         i--
@@ -179,11 +180,12 @@ export function queueWatcher (watcher: Watcher) {
     // queue the flush
     if (!waiting) {
       waiting = true
-
+      // 这里是同步执行
       if (process.env.NODE_ENV !== 'production' && !config.async) {
         flushSchedulerQueue()
         return
       }
+      // 这里是下一个 tick 异步执行
       nextTick(flushSchedulerQueue)
     }
   }

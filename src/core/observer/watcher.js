@@ -100,6 +100,7 @@ export default class Watcher {
    * Evaluate the getter, and re-collect dependencies.
    */
   get () {
+    // 先把当前 watcher 添加到全局 watcher 数组中，并标记一下当前活跃的 watcher
     pushTarget(this)
     let value
     const vm = this.vm
@@ -117,7 +118,9 @@ export default class Watcher {
       if (this.deep) {
         traverse(value)
       }
+      // 依赖收集完成后，释放当前 watcher 恢复上一个 watcher
       popTarget()
+      // 然后清理一下当前 watcher 和 所有 dep 的依赖关系
       this.cleanupDeps()
     }
     return value
@@ -128,6 +131,7 @@ export default class Watcher {
    */
   addDep (dep: Dep) {
     const id = dep.id
+    // 第一次添加依赖的时候只会添加到 newDepIds newDeps 中
     if (!this.newDepIds.has(id)) {
       this.newDepIds.add(id)
       this.newDeps.push(dep)
@@ -141,13 +145,18 @@ export default class Watcher {
    * Clean up for dependency collection.
    */
   cleanupDeps () {
+    // 这里第一次清除的时候 this.deps 是空的，因为每次 addDep 的时候只会添加到 newDepIds newDeps 中
     let i = this.deps.length
     while (i--) {
       const dep = this.deps[i]
+      // 这里遍历之前的每一个 dep，和当前最新的 newDepIds 进行比对，如果最新的依赖中已经没有之前的某一个依赖了，
+      // 就从 dep 中移除掉当前 watcher，避免不必要的 update，比如 <div v-if="true">{{ msg }}</div><div v-else>{{ msg1 }}</div>
+      // 这种场景 v-if 其实某种条件下是不用更新的，这时候之前可能要显示的时候保存了更新它的 watcher，后面不需要的时候其实需要移除 
       if (!this.newDepIds.has(dep.id)) {
         dep.removeSub(this)
       }
     }
+    // 清除完成后保留一下 newDepIds newDeps 到 depIds deps 中
     let tmp = this.depIds
     this.depIds = this.newDepIds
     this.newDepIds = tmp
@@ -179,6 +188,7 @@ export default class Watcher {
    */
   run () {
     if (this.active) {
+      // 获取新值
       const value = this.get()
       if (
         value !== this.value ||
@@ -188,9 +198,10 @@ export default class Watcher {
         isObject(value) ||
         this.deep
       ) {
-        // set new value
+        // 设置新值
         const oldValue = this.value
         this.value = value
+        // 如果这里是用户 watcher 的话
         if (this.user) {
           try {
             this.cb.call(this.vm, value, oldValue)
