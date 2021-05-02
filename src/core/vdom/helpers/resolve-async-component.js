@@ -47,7 +47,8 @@ export function resolveAsyncComponent (
   if (isTrue(factory.error) && isDef(factory.errorComp)) {
     return factory.errorComp
   }
-
+  
+  // 当第一次初始化异步流程后这个 resolved 已经有了，下次触发 _update 渲染的时候就会直接返回
   if (isDef(factory.resolved)) {
     return factory.resolved
   }
@@ -62,15 +63,19 @@ export function resolveAsyncComponent (
     return factory.loadingComp
   }
 
+  // 初始化异步组件
   if (owner && !isDef(factory.owners)) {
+    // 把当前渲染实例，保存到当前工厂函数组件的 owners 中用于记录实例中需要的异步组件
     const owners = factory.owners = [owner]
     let sync = true
     let timerLoading = null
     let timerTimeout = null
 
     ;(owner: any).$on('hook:destroyed', () => remove(owners, owner))
-
+    
+    // 强制更新渲染 vnode
     const forceRender = (renderCompleted: boolean) => {
+      // 这里遍历之前保存的每个相关实例，强制更新一下实例渲染
       for (let i = 0, l = owners.length; i < l; i++) {
         (owners[i]: any).$forceUpdate()
       }
@@ -88,11 +93,11 @@ export function resolveAsyncComponent (
       }
     }
 
+    // 包装两个一次性方法到工厂函数中
     const resolve = once((res: Object | Class<Component>) => {
-      // cache resolved
+      // 渲染的时候，获取到组件构造器保存到 factory.resolved 中
       factory.resolved = ensureCtor(res, baseCtor)
-      // invoke callbacks only if this is not a synchronous resolve
-      // (async resolves are shimmed as synchronous during SSR)
+      // 之前同步的初始化异步组件的准备工作已经完成，在渲染的时候这里肯定会进入 forceRender
       if (!sync) {
         forceRender(true)
       } else {
@@ -112,7 +117,6 @@ export function resolveAsyncComponent (
     })
 
     const res = factory(resolve, reject)
-
     if (isObject(res)) {
       if (isPromise(res)) {
         // () => Promise

@@ -114,7 +114,7 @@ export function createComponent (
   // 这里 baseCtor 是 Vue 构造器
   const baseCtor = context.$options._base
 
-  // 将传入的组件配置对象，转换成组件构造函数
+  // 将传入的组件配置对象，转换成组件构造函数，异步函数不用经过这一步
   if (isObject(Ctor)) {
     Ctor = baseCtor.extend(Ctor)
   }
@@ -127,15 +127,16 @@ export function createComponent (
     return
   }
 
-  // async component
+  // 异步组件函数不会有 Ctor.cid，会进入下面的异步组件逻辑
   let asyncFactory
   if (isUndef(Ctor.cid)) {
     asyncFactory = Ctor
+    // 这里解析出来的异步函数是函数，Ctor 会是 undefined
     Ctor = resolveAsyncComponent(asyncFactory, baseCtor)
     if (Ctor === undefined) {
-      // return a placeholder node for async component, which is rendered
-      // as a comment node but preserves all the raw information for the node.
-      // the information will be used for async server-rendering and hydration.
+      // 返回一个给异步函数占位置用的 vnode 数据，到这里异步组件的初始化准备工作完成
+      // 当下次触发更新 _update 的时候，就会再次进入到这个流程，上面的 resolveAsyncComponent 就能获取到异步组件的工厂函数了
+      // 就不会进这里了
       return createAsyncPlaceholder(
         asyncFactory,
         data,
