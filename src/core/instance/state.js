@@ -178,10 +178,11 @@ function initComputed (vm: Component, computed: Object) {
   const watchers = vm._computedWatchers = Object.create(null)
   // computed properties are just getters during SSR
   const isSSR = isServerRendering()
-
+  // 取到每一个计算属性，进行处理
   for (const key in computed) {
     const userDef = computed[key]
     const getter = typeof userDef === 'function' ? userDef : userDef.get
+    // 获取不到计算属性的函数就提醒
     if (process.env.NODE_ENV !== 'production' && getter == null) {
       warn(
         `Getter is missing for computed property "${key}".`,
@@ -199,9 +200,7 @@ function initComputed (vm: Component, computed: Object) {
       )
     }
 
-    // component-defined computed properties are already defined on the
-    // component prototype. We only need to define computed properties defined
-    // at instantiation here.
+    // 如果计算属性还不在 vm 中，说明还不存在，可以定义计算属性，否则已经存在就报错
     if (!(key in vm)) {
       defineComputed(vm, key, userDef)
     } else if (process.env.NODE_ENV !== 'production') {
@@ -219,6 +218,7 @@ export function defineComputed (
   key: string,
   userDef: Object | Function
 ) {
+  // 定义响应式配置
   const shouldCache = !isServerRendering()
   if (typeof userDef === 'function') {
     sharedPropertyDefinition.get = shouldCache
@@ -242,16 +242,21 @@ export function defineComputed (
       )
     }
   }
+  // 最终定义计算属性的响应式配置
   Object.defineProperty(target, key, sharedPropertyDefinition)
 }
 
 function createComputedGetter (key) {
   return function computedGetter () {
+    // 获取计算属性的 watcher
     const watcher = this._computedWatchers && this._computedWatchers[key]
     if (watcher) {
+      // 如果是对于延迟监听，则调用 watcher.evaluate() 获取一次 value
       if (watcher.dirty) {
         watcher.evaluate()
       }
+      // 如果当前存在激活中的 watcher 就调用 watcher.depend() 把 Dep.target 对应 watcher 添加到计算属性的 watcher 的相同依赖对象中
+      // 为了待数据更新后能通知到对应的 watcher 更新数据
       if (Dep.target) {
         watcher.depend()
       }

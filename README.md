@@ -42,7 +42,7 @@
 - Watcher：用于更新 vnode、视图、以及数据
 
 # nextTick 实现
-- 按兼容性确定使用什么方法调用下一个回调函数 setImmediate --> MessageChannel --> Promise --> setTimeout
+- 按兼容性确定使用什么方法调用下一个回调函数 Promise --> MutationObserver --> setImmediate --> setTimeout
 
 # 编译
 - parse：生成 ast 树（解析模版中的标签、属性、表达式、静态文本等等生成 ast 元素的数据）

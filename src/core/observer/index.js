@@ -44,11 +44,14 @@ export class Observer {
     this.dep = new Dep()
     this.vmCount = 0
     // 给对象定义 __ob__ 属性，用 def 是因为要配置描述属性 enumerable 因为不能让开发者在迭代属性的时候能找到这个属性
-    def(value, '__ob__', this) 
+    def(value, '__ob__', this)
+    // 这里是对数组类型的数据，先做原型的改造，为了让数组变化能被监听到
     if (Array.isArray(value)) {
+      // 这个 hasProto 是为了判断是是否在有原型的 js 环境
       if (hasProto) {
         protoAugment(value, arrayMethods)
       } else {
+        // 这里的 arrayKeys 也就是数组常用方法 'push','pop','shift','unshift','splice','sort','reverse'
         copyAugment(value, arrayMethods, arrayKeys)
       }
       this.observeArray(value)
@@ -90,8 +93,7 @@ function protoAugment (target, src: Object) {
 }
 
 /**
- * Augment a target Object or Array by defining
- * hidden properties.
+ * 给数组原型的方法追加定义
  */
 /* istanbul ignore next */
 function copyAugment (target: Object, src: Object, keys: Array<string>) {
@@ -206,25 +208,27 @@ export function defineReactive (
 }
 
 /**
- * Set a property on an object. Adds the new property and
- * triggers change notification if the property doesn't
- * already exist.
+ * 给对象添加、修改新属性值
  */
 export function set (target: Array<any> | Object, key: any, val: any): any {
+  // 对不满足条件的情况做提醒
   if (process.env.NODE_ENV !== 'production' &&
     (isUndef(target) || isPrimitive(target))
   ) {
     warn(`Cannot set reactive property on undefined, null, or primitive value: ${(target: any)}`)
   }
+  // 对数组的处理
   if (Array.isArray(target) && isValidArrayIndex(key)) {
     target.length = Math.max(target.length, key)
     target.splice(key, 1, val)
     return val
   }
+  // 对对象的处理
   if (key in target && !(key in Object.prototype)) {
     target[key] = val
     return val
   }
+  // 这里拿到 ob 观察者，判断如果是 vm 实例，或者是根 data 就警告
   const ob = (target: any).__ob__
   if (target._isVue || (ob && ob.vmCount)) {
     process.env.NODE_ENV !== 'production' && warn(
@@ -233,10 +237,12 @@ export function set (target: Array<any> | Object, key: any, val: any): any {
     )
     return val
   }
+  // 如果没有观察者，就当普通对象赋值
   if (!ob) {
     target[key] = val
     return val
   }
+  // 定义响应式属性后通知更新
   defineReactive(ob.value, key, val)
   ob.dep.notify()
   return val

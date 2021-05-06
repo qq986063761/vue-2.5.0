@@ -10,6 +10,7 @@ export let isUsingMicroTask = false
 const callbacks = []
 let pending = false
 
+// 最终执行的更新函数
 function flushCallbacks () {
   pending = false
   const copies = callbacks.slice(0)
@@ -39,6 +40,7 @@ let timerFunc
 // completely stops working after triggering a few times... so, if native
 // Promise is available, we will use it:
 /* istanbul ignore next, $flow-disable-line */
+// 通过不同的兼容性判断，来初始化 timerFunc 函数
 if (typeof Promise !== 'undefined' && isNative(Promise)) {
   const p = Promise.resolve()
   timerFunc = () => {
@@ -86,8 +88,10 @@ if (typeof Promise !== 'undefined' && isNative(Promise)) {
 
 export function nextTick (cb?: Function, ctx?: Object) {
   let _resolve
+  // 将需要执行的函数追加到回调数组中
   callbacks.push(() => {
     if (cb) {
+      // 这里 try catch 可以避免 js 单线程运行因为某个回调函数出错后导致整个 js 无法继续
       try {
         cb.call(ctx)
       } catch (e) {
@@ -97,11 +101,13 @@ export function nextTick (cb?: Function, ctx?: Object) {
       _resolve(ctx)
     }
   })
+  // pending 为 false 时，执行调用函数
   if (!pending) {
     pending = true
     timerFunc()
   }
   // $flow-disable-line
+  // 没传 cb 参数，而是通过 nextTick.then 的形式调用的话，就会用 Promise 包装执行 then 的内容
   if (!cb && typeof Promise !== 'undefined') {
     return new Promise(resolve => {
       _resolve = resolve
