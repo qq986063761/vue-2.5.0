@@ -178,7 +178,7 @@ function initComputed (vm: Component, computed: Object) {
   const watchers = vm._computedWatchers = Object.create(null)
   // computed properties are just getters during SSR
   const isSSR = isServerRendering()
-  // 取到每一个计算属性，进行处理
+  // 获取计算属性的 get 函数
   for (const key in computed) {
     const userDef = computed[key]
     const getter = typeof userDef === 'function' ? userDef : userDef.get
@@ -189,9 +189,9 @@ function initComputed (vm: Component, computed: Object) {
         vm
       )
     }
-
+    
+    // 创建计算属性的 watcher
     if (!isSSR) {
-      // create internal watcher for the computed property.
       watchers[key] = new Watcher(
         vm,
         getter || noop,
@@ -218,7 +218,7 @@ export function defineComputed (
   key: string,
   userDef: Object | Function
 ) {
-  // 定义响应式配置
+  // 获取计算属性的 getter 用于后面配置响应式属性
   const shouldCache = !isServerRendering()
   if (typeof userDef === 'function') {
     sharedPropertyDefinition.get = shouldCache
@@ -251,12 +251,16 @@ function createComputedGetter (key) {
     // 获取计算属性的 watcher
     const watcher = this._computedWatchers && this._computedWatchers[key]
     if (watcher) {
-      // 如果是对于延迟监听，则调用 watcher.evaluate() 获取一次 value
+      // 这里在前面创建计算属性 watcher 时 watcher 构造器内会初始化一次 dirty 为 true，
+      // 下次直接访问这个计算属性时会触发这个 getter 进入 watcher.evaluate() 获取值
+      // 这里当计算属性依赖没变化时就不会重新调用 watcher.evaluate() 了就会取之前的 watcher.value
+      // 下次重新获取新值就要等到 watcher.update() 被触发后重置 watcher.dirty 了
       if (watcher.dirty) {
         watcher.evaluate()
       }
-      // 如果当前存在激活中的 watcher 就调用 watcher.depend() 把 Dep.target 对应 watcher 添加到计算属性的 watcher 的相同依赖对象中
-      // 为了待数据更新后能通知到对应的 watcher 更新数据
+      // 如果当前存在活动中的 watcher，比如当前计算属性相关的某个渲染 watcher 正在活动；
+      // 就调用 watcher.depend() 把 Dep.target 对应 watcher 添加到计算属性 watcher 的依赖中做关联
+      // 为了待数据更新后能通知到对应的渲染 watcher 更新数据
       if (Dep.target) {
         watcher.depend()
       }

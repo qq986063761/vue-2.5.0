@@ -35,7 +35,7 @@ export default class Dep {
   }
 
   notify () {
-    // stabilize the subscriber list first
+    // 获取到之前收集的 watcher，有渲染 watcher， 也有计算属性 watcher
     const subs = this.subs.slice()
     if (process.env.NODE_ENV !== 'production' && !config.async) {
       // subs aren't sorted in scheduler if not running async

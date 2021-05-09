@@ -7,6 +7,7 @@
 </head>
 <body>
   <div id="app">
+    <div>{{ cname }}</div>
     <child :msg="msg"></child>
   </div>
   <script src="./vue.js"></script>
@@ -24,11 +25,21 @@
               childTxt: 'childTxt'
             }
           },
-          template: '<div>{{ msg }} {{ childTxt }}</div>'
+          computed: {
+            cname() {
+              return this.msg + '666'
+            }
+          },
+          template: '<div>{{ msg }} {{ childTxt }} {{ cname }}</div>'
         }
       },
       data: {
         msg: '123'
+      },
+      computed: {
+        cname() {
+          return this.msg + '666'
+        }
       }
     })
   </script>

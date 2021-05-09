@@ -46,7 +46,8 @@ export default class Watcher {
     isRenderWatcher?: boolean
   ) {
     this.vm = vm
-    // 如果是用于更新视图渲染的 watcher，就和实例 _watcher 关联，并添加到实例 _watchers 数组中
+    // 如果是用于更新视图渲染的和生成 vnode 相关的 watcher，就和实例 _watcher 关联，并添加到实例 _watchers 数组中
+    // 渲染 watcher 是在 mount 流程中创建的
     if (isRenderWatcher) {
       vm._watcher = this
     }
@@ -64,7 +65,7 @@ export default class Watcher {
     this.cb = cb
     this.id = ++uid // uid for batching
     this.active = true
-    this.dirty = this.lazy // for lazy watchers
+    this.dirty = this.lazy // 针对计算属性等需要懒加载值的类型
     this.deps = []
     this.newDeps = []
     this.depIds = new Set()
@@ -90,14 +91,15 @@ export default class Watcher {
       }
     }
 
-    // 初始化 watcher 后再初始化获取一次 value
+    // 初始化 watcher 后，先初始化获取一次 value
+    // 如果是计算属性 this.lazy 为 true，则不会先调用 get，会在用到计算属性的地方被调用
     this.value = this.lazy
       ? undefined
       : this.get()
   }
 
   /**
-   * Evaluate the getter, and re-collect dependencies.
+   * 计算属性的 getter，和 data 属性的 getter 中重新收集依赖
    */
   get () {
     // 先把当前 watcher 添加到全局 watcher 数组中，并标记一下当前活跃的 watcher
@@ -105,6 +107,8 @@ export default class Watcher {
     let value
     const vm = this.vm
     try {
+      // 这里如果是计算属性的话，getter 就是计算属性配置的 get 函数
+      // 计算属性的 get 函数中如果有其他 data、props 中的属性，又会触发他们的 get 重新获取计算属性的依赖
       value = this.getter.call(vm, vm)
     } catch (e) {
       if (this.user) {
@@ -216,8 +220,7 @@ export default class Watcher {
   }
 
   /**
-   * Evaluate the value of the watcher.
-   * This only gets called for lazy watchers.
+   * 这里是给计算属性这种懒加载值的属性来获取值的方法
    */
   evaluate () {
     this.value = this.get()
