@@ -77,7 +77,7 @@ export default class Watcher {
     if (typeof expOrFn === 'function') {
       this.getter = expOrFn
     } else {
-      // 有可能传入的不是函数，而是字符串，比如 'obj.getName' 这种，就再解析一次获取到更新函数
+      // 有可能传入的不是函数，在 watch 配置中有可能是字符串，比如 'obj.getName' 这种，就通过路径解析出函数用于获取最终值
       this.getter = parsePath(expOrFn)
       // 如果没获取到 getter 函数，就提醒
       if (!this.getter) {
@@ -172,8 +172,7 @@ export default class Watcher {
   }
 
   /**
-   * Subscriber interface.
-   * Will be called when a dependency changes.
+   * 用户界面上的数据改变后会触发渲染 watcher 的更新
    */
   update () {
     /* istanbul ignore else */

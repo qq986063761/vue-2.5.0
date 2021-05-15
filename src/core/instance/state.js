@@ -304,8 +304,10 @@ function initMethods (vm: Component, methods: Object) {
 }
 
 function initWatch (vm: Component, watch: Object) {
+  // 拿到 watch 的每个属性配置
   for (const key in watch) {
     const handler = watch[key]
+    // watch 属性可能有数组，字符串，对象等配置
     if (Array.isArray(handler)) {
       for (let i = 0; i < handler.length; i++) {
         createWatcher(vm, key, handler[i])
@@ -322,10 +324,12 @@ function createWatcher (
   handler: any,
   options?: Object
 ) {
+  // 如果 watch 配置是对象，就取对象的 handler 方法
   if (isPlainObject(handler)) {
     options = handler
     handler = handler.handler
   }
+  // 如果值是字符串，就获取实例上对应的方法
   if (typeof handler === 'string') {
     handler = vm[handler]
   }
@@ -364,13 +368,17 @@ export function stateMixin (Vue: Class<Component>) {
     options?: Object
   ): Function {
     const vm: Component = this
+    // 如果传入的函数又是对象，就重新调用 createWatcher 处理 watch 属性
     if (isPlainObject(cb)) {
       return createWatcher(vm, expOrFn, cb, options)
     }
     options = options || {}
-    options.user = true
+    options.user = true // 标记 watch 是一个用户定义的 watch 属性
+    // 为 watch 属性创建一个 Watcher 对象用于监听变化
     const watcher = new Watcher(vm, expOrFn, cb, options)
+    // 如果定义了 immediate，则立即调用一次绑定函数
     if (options.immediate) {
+      // 这里把当前 watcher 对象push到 Dep.target 中，让 data、计算属性 被访问时的依赖对象收集当前这个 watcher，方便后面值变化后通知 watcher 更新
       pushTarget()
       try {
         cb.call(vm, watcher.value)
@@ -379,6 +387,7 @@ export function stateMixin (Vue: Class<Component>) {
       }
       popTarget()
     }
+    // 返回一个函数，用于销毁当前 watch 属性绑定
     return function unwatchFn () {
       watcher.teardown()
     }

@@ -34,11 +34,19 @@
         }
       },
       data: {
-        msg: '123'
+        msg: '123',
+        form: {
+          text: '123'
+        }
       },
       computed: {
         cname() {
           return this.msg + '666'
+        }
+      },
+      watch: {
+        'form.text'(val) {
+          
         }
       }
     })
