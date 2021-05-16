@@ -117,8 +117,7 @@ export default class Watcher {
         throw e
       }
     } finally {
-      // "touch" every property so they are all tracked as
-      // dependencies for deep watching
+      // 当 watch 有 deep 时，就继续深度访问一遍所有属性
       if (this.deep) {
         traverse(value)
       }
@@ -175,12 +174,13 @@ export default class Watcher {
    * 用户界面上的数据改变后会触发渲染 watcher 的更新
    */
   update () {
-    /* istanbul ignore else */
+    // 这里通常是计算属性则重置 this.dirty，触发计算属性 getter 时会重新触发到计算属性 watcher 的 evaluate 方法调用用户配置的 get 函数获取值
     if (this.lazy) {
       this.dirty = true
     } else if (this.sync) {
       this.run()
     } else {
+      // 将当前 watcher 推到队列中更新
       queueWatcher(this)
     }
   }

@@ -378,7 +378,6 @@ export function stateMixin (Vue: Class<Component>) {
     const watcher = new Watcher(vm, expOrFn, cb, options)
     // 如果定义了 immediate，则立即调用一次绑定函数
     if (options.immediate) {
-      // 这里把当前 watcher 对象push到 Dep.target 中，让 data、计算属性 被访问时的依赖对象收集当前这个 watcher，方便后面值变化后通知 watcher 更新
       pushTarget()
       try {
         cb.call(vm, watcher.value)
