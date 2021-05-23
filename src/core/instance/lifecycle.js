@@ -58,11 +58,12 @@ export function initLifecycle (vm: Component) {
 }
 
 export function lifecycleMixin (Vue: Class<Component>) {
+  // 组件更新方法
   Vue.prototype._update = function (vnode: VNode, hydrating?: boolean) {
     const vm: Component = this
-    // 保存一些变量用于后面做比较
+    // 保存一些变量用于后面更新的时候做比较
     const prevEl = vm.$el
-    const prevVnode = vm._vnode
+    const prevVnode = vm._vnode // 这个 vnode 在第一次更新时，下面就给了 vm._vnode
      // 这里设置全局 activeInstance 记录当前实例，也是方便后续更新子组件的时候到子组件的父实例
     const restoreActiveInstance = setActiveInstance(vm)
     vm._vnode = vnode

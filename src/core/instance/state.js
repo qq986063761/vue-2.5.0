@@ -178,11 +178,11 @@ function initComputed (vm: Component, computed: Object) {
   const watchers = vm._computedWatchers = Object.create(null)
   // computed properties are just getters during SSR
   const isSSR = isServerRendering()
-  // 获取计算属性的 get 函数
+  // 获取计算属性的用户定义的 get 函数
   for (const key in computed) {
     const userDef = computed[key]
     const getter = typeof userDef === 'function' ? userDef : userDef.get
-    // 获取不到计算属性的函数就提醒
+    // 获取不到计算属性的用户定义的 get 函数就报错
     if (process.env.NODE_ENV !== 'production' && getter == null) {
       warn(
         `Getter is missing for computed property "${key}".`,
@@ -200,10 +200,11 @@ function initComputed (vm: Component, computed: Object) {
       )
     }
 
-    // 如果计算属性还不在 vm 中，说明还不存在，可以定义计算属性，否则已经存在就报错
+    // 定义计算属性内部 get 函数
     if (!(key in vm)) {
       defineComputed(vm, key, userDef)
     } else if (process.env.NODE_ENV !== 'production') {
+      // 这里都是报错已经存在相同的 key 的情况了
       if (key in vm.$data) {
         warn(`The computed property "${key}" is already defined in data.`, vm)
       } else if (vm.$options.props && key in vm.$options.props) {
@@ -213,12 +214,13 @@ function initComputed (vm: Component, computed: Object) {
   }
 }
 
+// 定义计算属性 key 对应的内部 get 函数，不是用户定义的 get 函数
 export function defineComputed (
   target: any,
   key: string,
   userDef: Object | Function
 ) {
-  // 获取计算属性的 getter 用于后面配置响应式属性
+  // 不是服务端渲染的情况下，都应该做缓存机制处理，否则就直接在 createGetterInvoker 中执行用户定义的 get 了
   const shouldCache = !isServerRendering()
   if (typeof userDef === 'function') {
     sharedPropertyDefinition.get = shouldCache
@@ -242,7 +244,7 @@ export function defineComputed (
       )
     }
   }
-  // 最终定义计算属性的响应式配置
+  // 通过 Object.defineProperty 定义响应式属性
   Object.defineProperty(target, key, sharedPropertyDefinition)
 }
 
@@ -252,7 +254,7 @@ function createComputedGetter (key) {
     const watcher = this._computedWatchers && this._computedWatchers[key]
     if (watcher) {
       // 这里在前面创建计算属性 watcher 时 watcher 构造器内会初始化一次 dirty 为 true，
-      // 下次直接访问这个计算属性时会触发这个 getter 进入 watcher.evaluate() 获取值
+      // 下次直接访问这个计算属性时会触发这个 getter 进入 watcher.evaluate() 获取值，watcher 中会调用用户的 get 获取 value
       // 这里当计算属性依赖没变化时就不会重新调用 watcher.evaluate() 了就会取之前的 watcher.value
       // 下次重新获取新值就要等到 watcher.update() 被触发后重置 watcher.dirty 了
       if (watcher.dirty) {
@@ -304,7 +306,7 @@ function initMethods (vm: Component, methods: Object) {
 }
 
 function initWatch (vm: Component, watch: Object) {
-  // 拿到 watch 的每个属性配置
+  // 拿到 watch 的每个属性值
   for (const key in watch) {
     const handler = watch[key]
     // watch 属性可能有数组，字符串，对象等配置
@@ -386,7 +388,7 @@ export function stateMixin (Vue: Class<Component>) {
       }
       popTarget()
     }
-    // 返回一个函数，用于销毁当前 watch 属性绑定
+    // 返回一个函数，用于销毁当前 watch 属性事件
     return function unwatchFn () {
       watcher.teardown()
     }

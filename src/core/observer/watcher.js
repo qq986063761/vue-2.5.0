@@ -77,7 +77,8 @@ export default class Watcher {
     if (typeof expOrFn === 'function') {
       this.getter = expOrFn
     } else {
-      // 有可能传入的不是函数，在 watch 配置中有可能是字符串，比如 'obj.getName' 这种，就通过路径解析出函数用于获取最终值
+      // 有可能传入的不是函数，在 watch 中有可能是字符串，比如 'obj.getName' 这种，
+      // 就通过路径解析出函数用于一层层获取最终值
       this.getter = parsePath(expOrFn)
       // 如果没获取到 getter 函数，就提醒
       if (!this.getter) {
@@ -174,10 +175,12 @@ export default class Watcher {
    * 用户界面上的数据改变后会触发渲染 watcher 的更新
    */
   update () {
-    // 这里通常是计算属性则重置 this.dirty，触发计算属性 getter 时会重新触发到计算属性 watcher 的 evaluate 方法调用用户配置的 get 函数获取值
+    // 如果是类似计算属性的 watcher 则重置 this.dirty，
+    // 这样计算属性内部 get 触发时就会重新调用 evaluate 方法获取最新的 value
     if (this.lazy) {
       this.dirty = true
     } else if (this.sync) {
+      // 配置了 sync 的 watch 属性，会比其他 watch 属性优先执行
       this.run()
     } else {
       // 将当前 watcher 推到队列中更新
@@ -193,6 +196,7 @@ export default class Watcher {
     if (this.active) {
       // 获取新值
       const value = this.get()
+      // 当值有变化时，触发用户 watch
       if (
         value !== this.value ||
         // Deep watchers and watchers on Object/Arrays should fire even
@@ -204,7 +208,7 @@ export default class Watcher {
         // 设置新值
         const oldValue = this.value
         this.value = value
-        // 如果这里是用户 watcher 的话
+        // 如果这里是用户 watch 的话。就触发用户的 watch 监听函数
         if (this.user) {
           try {
             this.cb.call(this.vm, value, oldValue)
@@ -223,6 +227,8 @@ export default class Watcher {
    */
   evaluate () {
     this.value = this.get()
+    // 获取值后关闭flag，可以优化计算属性缓存，下次计算属性内部 get 触发就会直接取之前的 value
+    // 要等到下次 update 触发后才会重新激活 flag 让计算属性获取新值
     this.dirty = false
   }
 

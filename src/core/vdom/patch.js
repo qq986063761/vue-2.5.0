@@ -728,14 +728,14 @@ export function createPatchFunction (backend) {
     let isInitialPatch = false
     const insertedVnodeQueue = []
     
-    // oldVnode 在初始化 patch 组件时，是没有的，会进入这里的逻辑
+    // oldVnode 在初始化 patch 组件时，是没有的，会进入这里
     if (isUndef(oldVnode)) {
-      // empty mount (likely as component), create new root element
       isInitialPatch = true
       createElm(vnode, insertedVnodeQueue)
     } else {
-      // 初始化渲染时，传入的 oldVnode 是 vm.$el，是真实的元素
+      // 初始化渲染时，传入的 oldVnode 是 vm.$el，这时就是真实的元素
       const isRealElement = isDef(oldVnode.nodeType)
+      // 这里判断是相同的 vnode，就更新一下 vnode
       if (!isRealElement && sameVnode(oldVnode, vnode)) {
         // patch existing root node
         patchVnode(oldVnode, vnode, insertedVnodeQueue, null, null, removeOnly)
