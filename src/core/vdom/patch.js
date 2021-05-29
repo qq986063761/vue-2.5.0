@@ -32,6 +32,7 @@ export const emptyNode = new VNode('', {}, [])
 
 const hooks = ['create', 'activate', 'update', 'remove', 'destroy']
 
+// 判断是否是相同的 vnode
 function sameVnode (a, b) {
   return (
     a.key === b.key && (
@@ -735,9 +736,8 @@ export function createPatchFunction (backend) {
     } else {
       // 初始化渲染时，传入的 oldVnode 是 vm.$el，这时就是真实的元素
       const isRealElement = isDef(oldVnode.nodeType)
-      // 这里判断是相同的 vnode，就更新一下 vnode
+      // 这里判断新旧节点是相同的
       if (!isRealElement && sameVnode(oldVnode, vnode)) {
-        // patch existing root node
         patchVnode(oldVnode, vnode, insertedVnodeQueue, null, null, removeOnly)
       } else {
         if (isRealElement) {
@@ -771,7 +771,7 @@ export function createPatchFunction (backend) {
         const oldElm = oldVnode.elm
         const parentElm = nodeOps.parentNode(oldElm)
 
-        // create new node
+        // 如果新旧节点不同，则这里创建一个新的元素
         createElm(
           vnode,
           insertedVnodeQueue,
