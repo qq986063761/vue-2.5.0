@@ -63,16 +63,17 @@ export function lifecycleMixin (Vue: Class<Component>) {
     const vm: Component = this
     // 保存一些变量用于后面更新的时候做比较
     const prevEl = vm.$el
-    const prevVnode = vm._vnode // 这个 vnode 在第一次更新时，下面就给了 vm._vnode
+    // 记录 vnode 上一次的状态，_vnode 下面每次更新都会赋值最新的 vnode
+    const prevVnode = vm._vnode
      // 这里设置全局 activeInstance 记录当前实例，也是方便后续更新子组件的时候到子组件的父实例
     const restoreActiveInstance = setActiveInstance(vm)
     vm._vnode = vnode
     // __patch__ 定义在文件 src/platforms/web/runtime/index.js
     if (!prevVnode) {
-      // 初始化一用 vnode 渲染元素，这时候 vm.$el 作为参数传入的时候还不存在
+      // 初始化渲染，这时候还没有 prevVnode 传的是组件挂载元素
       vm.$el = vm.__patch__(vm.$el, vnode, hydrating, false /* removeOnly */)
     } else {
-      // updates
+      // 更新渲染，这时候 prevVnode 已经存在，用于 patch 中和最新的 vnode 做对比更新
       vm.$el = vm.__patch__(prevVnode, vnode)
     }
     restoreActiveInstance()
@@ -219,6 +220,7 @@ export function mountComponent (
   return vm
 }
 
+// 更新自组件 vnode
 export function updateChildComponent (
   vm: Component,
   propsData: ?Object,
@@ -267,7 +269,7 @@ export function updateChildComponent (
   vm.$attrs = parentVnode.data.attrs || emptyObject
   vm.$listeners = listeners || emptyObject
 
-  // update props
+  // 更新子组件的 props，这时候会触发子组件的响应式 set 通知到子组件的 update
   if (propsData && vm.$options.props) {
     toggleObserving(false)
     const props = vm._props
