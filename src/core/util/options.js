@@ -293,14 +293,14 @@ export function validateComponentName (name: string) {
 }
 
 /**
- * Ensure all props option syntax are normalized into the
- * Object-based format.
+ * 确认 props 语法的规范性
  */
 function normalizeProps (options: Object, vm: ?Component) {
   const props = options.props
   if (!props) return
   const res = {}
   let i, val, name
+  // props 如果是数组就遍历数组属性
   if (Array.isArray(props)) {
     i = props.length
     while (i--) {
@@ -383,8 +383,8 @@ function assertObjectType (name: string, value: any, vm: ?Component) {
 }
 
 /**
- * Merge two option objects into a new one.
- * Core utility used in both instantiation and inheritance.
+ * 合并两个对象返回新对象
+ * 实例化和继承中重点被使用
  */
 export function mergeOptions (
   parent: Object, // 构造器默认 options

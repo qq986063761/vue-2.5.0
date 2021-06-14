@@ -220,7 +220,7 @@ export function mountComponent (
   return vm
 }
 
-// 更新自组件 vnode
+// 更新子组件 vnode
 export function updateChildComponent (
   vm: Component,
   propsData: ?Object,
@@ -271,6 +271,7 @@ export function updateChildComponent (
 
   // 更新子组件的 props，这时候会触发子组件的响应式 set 通知到子组件的 update
   if (propsData && vm.$options.props) {
+    // 更新子组件 props 时，不需要重新定义响应式 props 数据这时候设置标识
     toggleObserving(false)
     const props = vm._props
     const propKeys = vm.$options._propKeys || []

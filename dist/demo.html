@@ -7,48 +7,12 @@
 </head>
 <body>
   <div id="app">
-    <div>{{ cname }}</div>
-    <child :msg="msg"></child>
+    
   </div>
   <script src="./vue.js"></script>
   <script>
-    // Vue.config.performance = true
     const vm = new Vue({
-      el: '#app',
-      components: {
-        'child': {
-          props: {
-            msg: String
-          },
-          data() {
-            return {
-              childTxt: 'childTxt'
-            }
-          },
-          computed: {
-            cname() {
-              return this.msg + '666'
-            }
-          },
-          template: '<div>{{ msg }} {{ childTxt }} {{ cname }}</div>'
-        }
-      },
-      data: {
-        msg: '123',
-        form: {
-          text: '123'
-        }
-      },
-      computed: {
-        cname() {
-          return this.msg + '666'
-        }
-      },
-      watch: {
-        'form.text'(val) {
-          
-        }
-      }
+      el: '#app'
     })
   </script>
 </body>

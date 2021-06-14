@@ -70,15 +70,18 @@ function initProps (vm: Component, propsOptions: Object) {
   // instead of dynamic object key enumeration.
   const keys = vm.$options._propKeys = []
   const isRoot = !vm.$parent
-  // root instance props should be converted
+  // 不是根实例，对于组件的 prop 切换一下监听标志，因为 prop 是父组件传递进来的对象肯定已经被监听过了，
+  // 不用重新监听响应式，所以这里设置为 false，避免父组件中传给子组件的 prop 数据变化了导致子组件重新渲染过程中重新监听响应式
   if (!isRoot) {
     toggleObserving(false)
   }
   for (const key in propsOptions) {
     keys.push(key)
+    // 先对属性值进行检查合法性，然后获取传值
     const value = validateProp(key, propsOptions, propsData, vm)
-    /* istanbul ignore else */
+    // 对 props 的每一个 key value 做响应式定义
     if (process.env.NODE_ENV !== 'production') {
+      // 短横线化 prop 的 key 做保留字检查
       const hyphenatedKey = hyphenate(key)
       if (isReservedAttribute(hyphenatedKey) ||
           config.isReservedAttr(hyphenatedKey)) {
@@ -88,6 +91,7 @@ function initProps (vm: Component, propsOptions: Object) {
         )
       }
       defineReactive(props, key, value, () => {
+        // 这里是避免对 prop 属性直接进行 set
         if (!isRoot && !isUpdatingChildComponent) {
           warn(
             `Avoid mutating a prop directly since the value will be ` +
@@ -104,6 +108,7 @@ function initProps (vm: Component, propsOptions: Object) {
     // static props are already proxied on the component's prototype
     // during Vue.extend(). We only need to proxy props defined at
     // instantiation here.
+    // 对 prop 属性进行代理，方便直接通过实例访问
     if (!(key in vm)) {
       proxy(vm, `_props`, key)
     }
