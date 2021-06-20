@@ -10,6 +10,7 @@ export function createCompilerCreator (baseCompile: Function): Function {
       template: string,
       options?: CompilerOptions
     ): CompiledResult {
+      
       const finalOptions = Object.create(baseOptions)
       const errors = []
       const tips = []

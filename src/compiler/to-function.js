@@ -32,7 +32,7 @@ export function createCompileToFunctionFn (compile: Function): Function {
 
     /* istanbul ignore if */
     if (process.env.NODE_ENV !== 'production') {
-      // detect possible CSP restriction
+      // 检查一下是否允许包装 function，避免打包工具禁止了这种环境
       try {
         new Function('return 1')
       } catch (e) {
@@ -48,7 +48,7 @@ export function createCompileToFunctionFn (compile: Function): Function {
       }
     }
 
-    // check cache
+    // 检查缓存如果已经存在对应模版缓存的编译后的结果，就直接返回了，这里的 key 好像就是用的模版对应字符串
     const key = options.delimiters
       ? String(options.delimiters) + template
       : template
@@ -56,7 +56,7 @@ export function createCompileToFunctionFn (compile: Function): Function {
       return cache[key]
     }
 
-    // compile
+    // 编译
     const compiled = compile(template, options)
 
     // check compilation errors/tips
