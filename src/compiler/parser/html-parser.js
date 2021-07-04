@@ -124,6 +124,8 @@ export function parseHTML (html, options) {
       let text, rest, next
       if (textEnd >= 0) {
         rest = html.slice(textEnd)
+
+        // 如果不满足上面的其他其中标签的情况则对剩余文本内容做如下处理
         while (
           !endTag.test(rest) &&
           !startTagOpen.test(rest) &&
@@ -275,7 +277,7 @@ export function parseHTML (html, options) {
     if (start == null) start = index
     if (end == null) end = index
 
-    // 从 stack 中找到和当前结束标签对称的同一个标签，因为一般一个开始标签应该是要对应一个结束标签的
+    // 从 stack 中找到和当前结束标签对称的同名开始标签，因为一般一个开始标签应该是要对应一个结束标签的
     if (tagName) {
       lowerCasedTagName = tagName.toLowerCase()
       for (pos = stack.length - 1; pos >= 0; pos--) {
@@ -289,8 +291,11 @@ export function parseHTML (html, options) {
     }
 
     if (pos >= 0) {
-      // Close all the open elements, up the stack
+      // 遍历所有的开始标签匹配到当前的结束标签后出栈
       for (let i = stack.length - 1; i >= pos; i--) {
+        // 如果存在 i > pos 的情况，比如 <div><span></div> 这种，</div> 对应的 <div> 索引 pos 找到是 0
+        // 但是这里重新遍历 stack 的时候存在当前这个 i > pos 说明数组中 i 索引这个开始标签和当前结束标签不匹配，
+        // 则报错警告说缺结束标签
         if (process.env.NODE_ENV !== 'production' &&
           (i > pos || !tagName) &&
           options.warn
@@ -305,7 +310,7 @@ export function parseHTML (html, options) {
         }
       }
 
-      // Remove the open elements from the stack
+      // 从栈中移除开始标签
       stack.length = pos
       lastTag = pos && stack[pos - 1].tag
     } else if (lowerCasedTagName === 'br') {
