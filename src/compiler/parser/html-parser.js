@@ -125,14 +125,14 @@ export function parseHTML (html, options) {
       if (textEnd >= 0) {
         rest = html.slice(textEnd)
 
-        // 如果不满足上面的其他其中标签的情况则对剩余文本内容做如下处理
+        // 如果不满足上面标签的情况则对剩余文本内容做处理
         while (
           !endTag.test(rest) &&
           !startTagOpen.test(rest) &&
           !comment.test(rest) &&
           !conditionalComment.test(rest)
         ) {
-          // < in plain text, be forgiving and treat it as text
+          // 在剩余文本内容中有 < 符号，则这个是文本内容，而不是标签
           next = rest.indexOf('<', 1)
           if (next < 0) break
           textEnd += next
