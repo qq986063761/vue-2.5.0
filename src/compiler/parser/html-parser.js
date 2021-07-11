@@ -133,6 +133,7 @@ export function parseHTML (html, options) {
           !conditionalComment.test(rest)
         ) {
           // 在剩余文本内容中有 < 符号，则这个是文本内容，而不是标签
+          // 则不断的跳过文本中的尖括号文本继续往后推进索引
           next = rest.indexOf('<', 1)
           if (next < 0) break
           textEnd += next
